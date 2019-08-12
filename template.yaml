@@ -1,0 +1,145 @@
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Product:
+    Description: Product name
+    Type: String
+
+  Environment:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+
+Globals:
+  Function:
+    Runtime: ruby2.5
+    Timeout: 60
+    Handler: lambda.handler
+    Environment:
+      Variables:
+        S3_BUCKET: !Ref S3Bucket
+
+Resources:
+  RendererLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: 'app/steps/renderer/'
+
+  ConverterLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: 'app/steps/converter/'
+      MemorySize: 512
+      Layers:
+        - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
+
+  WebhookLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: 'app/steps/webhook/'
+
+  StateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "State Machine",
+              "StartAt": "Render",
+              "States": {
+                "Render": {
+                  "Type": "Task",
+                  "Resource": "${RendererLambdaFunctionArn}",
+                  "Next": "Convert To PDF",
+                  "Retry": [ {
+                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed"],
+                    "MaxAttempts": 5,
+                  } ]
+                },
+                "Convert To PDF": {
+                  "Type": "Task",
+                  "Resource": "${ConverterLambdaFunctionArn}",
+                  "Next": "Webhook",
+                  "Retry": [ {
+                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed"],
+                    "MaxAttempts": 5,
+                  } ]
+                },
+                "Webhook": {
+                  "Type": "Task",
+                  "Resource": "${WebhookLambdaFunctionArn}",
+                  "End": true,
+                  "Retry": [ {
+                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed"],
+                    "MaxAttempts": 5,
+                  }, {
+                    "ErrorEquals": [ "States.Timeout" ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 10,
+                  } ]
+                }
+              }
+            }
+          -
+            RendererLambdaFunctionArn: !GetAtt [ RendererLambdaFunction, Arn ]
+            ConverterLambdaFunctionArn: !GetAtt [ ConverterLambdaFunction, Arn ]
+            WebhookLambdaFunctionArn: !GetAtt [ WebhookLambdaFunction, Arn ]
+
+  StateMachineExecutionIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - states.amazonaws.com
+            Action:
+              - sts:AssumeRole
+        Path: /
+        Policies:
+          -
+            PolicyName: StatesExecutionPolicy
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                -
+                  Effect: Allow
+                  Action:
+                    - lambda:InvokeFunction
+                  Resource:
+                    - !GetAtt RendererLambdaFunction.Arn
+                    - !GetAtt ConverterLambdaFunction.Arn
+                    - !GetAtt WebhookLambdaFunction.Arn
+          -
+            PolicyName: StatesS3BucketAccess
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                -
+                  Effect: Allow
+                  Action:
+                    - s3:PutObject
+                    - s3:PutObjectAcl
+                    - s3:GetObject
+                  Resource:
+                    - !Sub "${S3Bucket}"
+                    - !Sub "${S3Bucket}/*"
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "${Product}-${Environment}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          -
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          -
+            ExpirationInDays: 2
+            Status: Enabled

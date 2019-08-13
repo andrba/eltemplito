@@ -1,1 +1,4 @@
 .aws-sam
+.layers
+.bundle
+vendor

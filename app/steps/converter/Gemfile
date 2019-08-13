@@ -1,7 +1,0 @@
-source 'https://rubygems.org'
-
-gem 'brotli'
-
-group :development do
-  gem 'aws-sdk-s3'
-end

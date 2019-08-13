@@ -22,20 +22,52 @@ Resources:
   RendererLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: 'app/steps/renderer/'
+      CodeUri: 'app/functions/renderer/'
+      Layers:
+        - !Ref RendererRubyGemsLayer
+
+  RendererRubyGemsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: renderer
+      ContentUri: .layers/renderer/
+      CompatibleRuntimes:
+        - ruby2.5
+      RetentionPolicy: Delete
 
   ConverterLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: 'app/steps/converter/'
+      CodeUri: 'app/functions/converter/'
       MemorySize: 512
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
+        - !Ref ConverterRubyGemsLayer
+
+  ConverterRubyGemsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: converter
+      ContentUri: .layers/converter/
+      CompatibleRuntimes:
+        - ruby2.5
+      RetentionPolicy: Delete
 
   WebhookLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: 'app/steps/webhook/'
+      CodeUri: 'app/functions/webhook/'
+      Layers:
+        - !Ref WebhookRubyGemsLayer
+
+  WebhookRubyGemsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: webhook
+      ContentUri: .layers/webhook/
+      CompatibleRuntimes:
+        - ruby2.5
+      RetentionPolicy: Delete
 
   StateMachine:
     Type: AWS::StepFunctions::StateMachine
@@ -52,8 +84,8 @@ Resources:
                   "Resource": "${RendererLambdaFunctionArn}",
                   "Next": "Convert To PDF",
                   "Retry": [ {
-                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed"],
-                    "MaxAttempts": 5,
+                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed" ],
+                    "MaxAttempts": 5
                   } ]
                 },
                 "Convert To PDF": {
@@ -61,8 +93,8 @@ Resources:
                   "Resource": "${ConverterLambdaFunctionArn}",
                   "Next": "Webhook",
                   "Retry": [ {
-                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed"],
-                    "MaxAttempts": 5,
+                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed" ],
+                    "MaxAttempts": 5
                   } ]
                 },
                 "Webhook": {
@@ -70,20 +102,21 @@ Resources:
                   "Resource": "${WebhookLambdaFunctionArn}",
                   "End": true,
                   "Retry": [ {
-                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed"],
-                    "MaxAttempts": 5,
+                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed" ],
+                    "MaxAttempts": 5
                   }, {
                     "ErrorEquals": [ "States.Timeout" ],
                     "IntervalSeconds": 5,
-                    "MaxAttempts": 10,
+                    "MaxAttempts": 10
                   } ]
                 }
               }
             }
           -
-            RendererLambdaFunctionArn: !GetAtt [ RendererLambdaFunction, Arn ]
-            ConverterLambdaFunctionArn: !GetAtt [ ConverterLambdaFunction, Arn ]
-            WebhookLambdaFunctionArn: !GetAtt [ WebhookLambdaFunction, Arn ]
+            RendererLambdaFunctionArn: !GetAtt RendererLambdaFunction.Arn
+            ConverterLambdaFunctionArn: !GetAtt ConverterLambdaFunction.Arn
+            WebhookLambdaFunctionArn: !GetAtt WebhookLambdaFunction.Arn
+      RoleArn: !GetAtt StateMachineExecutionIamRole.Arn
 
   StateMachineExecutionIamRole:
     Type: AWS::IAM::Role
@@ -98,35 +131,35 @@ Resources:
                 - states.amazonaws.com
             Action:
               - sts:AssumeRole
-        Path: /
-        Policies:
-          -
-            PolicyName: StatesExecutionPolicy
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                -
-                  Effect: Allow
-                  Action:
-                    - lambda:InvokeFunction
-                  Resource:
-                    - !GetAtt RendererLambdaFunction.Arn
-                    - !GetAtt ConverterLambdaFunction.Arn
-                    - !GetAtt WebhookLambdaFunction.Arn
-          -
-            PolicyName: StatesS3BucketAccess
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                -
-                  Effect: Allow
-                  Action:
-                    - s3:PutObject
-                    - s3:PutObjectAcl
-                    - s3:GetObject
-                  Resource:
-                    - !Sub "${S3Bucket}"
-                    - !Sub "${S3Bucket}/*"
+      Path: /
+      Policies:
+        -
+          PolicyName: StatesExecutionPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt RendererLambdaFunction.Arn
+                  - !GetAtt ConverterLambdaFunction.Arn
+                  - !GetAtt WebhookLambdaFunction.Arn
+        -
+          PolicyName: StatesS3BucketAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:GetObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3Bucket}"
+                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
 
   S3Bucket:
     Type: AWS::S3::Bucket

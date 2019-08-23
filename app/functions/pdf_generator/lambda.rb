@@ -1,5 +1,5 @@
 require 'brotli'
-require 'converter'
+require 'pdf_generator'
 require 'aws-sdk-s3'
 
 DEFLATED_SOFFICE_PATH = '/opt/lo.tar.br';
@@ -16,7 +16,7 @@ module Lambda
     rendered_file_path = "tmp/#{event[:rendered_file_name]}"
     bucket.object(event[:rendered_file_name]).get(response_target: rendered_file_path)
 
-    pdf_file_path = Converter.perform(file_path: rendered_file_path, soffice_path: INFLATED_SOFFICE_PATH)
+    pdf_file_path = PdfGenerator.perform(file_path: rendered_file_path, soffice_path: INFLATED_SOFFICE_PATH)
     pdf_file_name = File.basename(pdf_file_path, ".*")
 
     bucket.object(pdf_file_name).upload_file(pdf_file_path)

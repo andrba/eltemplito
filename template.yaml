@@ -13,7 +13,7 @@ Globals:
   Function:
     Runtime: ruby2.5
     Timeout: 60
-    Handler: lambda.handler
+    Handler: lambda.Lambda.handler
     Environment:
       Variables:
         S3_BUCKET: !Ref S3Bucket
@@ -23,6 +23,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/functions/renderer/'
+      Environment:
+        Variables:
+          DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
       Layers:
         - !Ref RendererRubyGemsLayer
 
@@ -35,131 +38,26 @@ Resources:
         - ruby2.5
       RetentionPolicy: Delete
 
-  ConverterLambdaFunction:
+  PDFGeneratorLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: 'app/functions/converter/'
+      CodeUri: 'app/functions/pdf_generator/'
+      Environment:
+        Variables:
+          DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
       MemorySize: 512
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
-        - !Ref ConverterRubyGemsLayer
+        - !Ref PDFGeneratorRubyGemsLayer
 
-  ConverterRubyGemsLayer:
+  PDFGeneratorRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: converter
-      ContentUri: .layers/converter/
+      LayerName: pdf_generator
+      ContentUri: .layers/pdf_generator/
       CompatibleRuntimes:
         - ruby2.5
       RetentionPolicy: Delete
-
-  WebhookLambdaFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: 'app/functions/webhook/'
-      Layers:
-        - !Ref WebhookRubyGemsLayer
-
-  WebhookRubyGemsLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: webhook
-      ContentUri: .layers/webhook/
-      CompatibleRuntimes:
-        - ruby2.5
-      RetentionPolicy: Delete
-
-  StateMachine:
-    Type: AWS::StepFunctions::StateMachine
-    Properties:
-      DefinitionString:
-        !Sub
-          - |-
-            {
-              "Comment": "State Machine",
-              "StartAt": "Render",
-              "States": {
-                "Render": {
-                  "Type": "Task",
-                  "Resource": "${RendererLambdaFunctionArn}",
-                  "Next": "Convert To PDF",
-                  "Retry": [ {
-                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed" ],
-                    "MaxAttempts": 5
-                  } ]
-                },
-                "Convert To PDF": {
-                  "Type": "Task",
-                  "Resource": "${ConverterLambdaFunctionArn}",
-                  "Next": "Webhook",
-                  "Retry": [ {
-                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed" ],
-                    "MaxAttempts": 5
-                  } ]
-                },
-                "Webhook": {
-                  "Type": "Task",
-                  "Resource": "${WebhookLambdaFunctionArn}",
-                  "End": true,
-                  "Retry": [ {
-                    "ErrorEquals": [ "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "States.TaskFailed" ],
-                    "MaxAttempts": 5
-                  }, {
-                    "ErrorEquals": [ "States.Timeout" ],
-                    "IntervalSeconds": 5,
-                    "MaxAttempts": 10
-                  } ]
-                }
-              }
-            }
-          -
-            RendererLambdaFunctionArn: !GetAtt RendererLambdaFunction.Arn
-            ConverterLambdaFunctionArn: !GetAtt ConverterLambdaFunction.Arn
-            WebhookLambdaFunctionArn: !GetAtt WebhookLambdaFunction.Arn
-      RoleArn: !GetAtt StateMachineExecutionIamRole.Arn
-
-  StateMachineExecutionIamRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          -
-            Effect: Allow
-            Principal:
-              Service:
-                - states.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Path: /
-      Policies:
-        -
-          PolicyName: StatesExecutionPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource:
-                  - !GetAtt RendererLambdaFunction.Arn
-                  - !GetAtt ConverterLambdaFunction.Arn
-                  - !GetAtt WebhookLambdaFunction.Arn
-        -
-          PolicyName: StatesS3BucketAccess
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:PutObjectAcl
-                  - s3:GetObject
-                Resource:
-                  - !Sub "arn:aws:s3:::${S3Bucket}"
-                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
 
   S3Bucket:
     Type: AWS::S3::Bucket
@@ -174,5 +72,24 @@ Resources:
       LifecycleConfiguration:
         Rules:
           -
-            ExpirationInDays: 2
+            ExpirationInDays: 14
             Status: Enabled
+
+  S3BucketSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "S3 Bucket"
+      Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
+      Type: String
+      Value: !Ref S3Bucket
+
+  DocumentsSNSTopic:
+    Type: AWS::SNS::Topic
+
+  DocumentsSNSTopicSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Documents SNS Topic"
+      Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
+      Type: String
+      Value: !Ref DocumentsSNSTopic

@@ -1,0 +1,6 @@
+{
+  "template_url": "https://github.com/senny/sablon/blob/master/test/fixtures/insertion_template.docx?raw=true",
+  "merge_fields": {
+    "content": "The best things in life are not things"
+  }
+}

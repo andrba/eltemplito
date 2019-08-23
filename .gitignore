@@ -2,3 +2,4 @@
 .layers
 .bundle
 vendor
+.env.json

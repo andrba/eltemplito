@@ -1,4 +1,4 @@
-module Converter
+module PdfGenerator
   DEFAULT_SOFFICE_ARGS = %w[
     --headless
     --invisible
@@ -10,7 +10,7 @@ module Converter
     --nofirststartwizard
   ]
 
-  class ConversionError < StandardError;
+  class PdfGenerationError < StandardError;
 
   module_function
 
@@ -21,7 +21,7 @@ module Converter
 
     return stdout if status == 0
 
-    raise ConversionError, stderr
+    raise PdfGenerationError, stderr
   ensure
     cleanup_tmp_files
   end

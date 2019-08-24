@@ -1,3 +1,4 @@
+require 'bundler'
 require 'rake'
 require 'fileutils'
 require 'etc'
@@ -20,7 +21,7 @@ task :build_layers do
     layer_names.map do |layer_name|
       FileUtils.mkdir_p(".layers/#{layer_name}/ruby/gems")
 
-      <<-BUNDLE
+      <<-BUNDLE.chomp
         bundle install \
           --jobs=#{Etc.nprocessors} \
           --path=/var/layer/.layers/#{layer_name} \
@@ -30,10 +31,10 @@ task :build_layers do
     end
 
   system!("docker run --rm \
-            -v $PWD:/var/layer \
-            -w /var/layer \
-            lambci/lambda:build-ruby2.5 \
-            /bin/bash -c \"#{bundle_commands.join(" && ")}\"")
+          -v $PWD:/var/layer \
+          -w /var/layer \
+          lambci/lambda:build-ruby2.5 \
+          /bin/bash -c \"#{bundle_commands.join(' && ')}\"")
 
   layer_names.each do |layer_name|
     system!("cd .layers/#{layer_name} && \

@@ -26,8 +26,21 @@ Resources:
       Environment:
         Variables:
           DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RendereingSQSQueue.Arn
+            BatchSize: 1
       Layers:
         - !Ref RendererRubyGemsLayer
+      Policies:
+        - S3CrudPolicy:
+          BucketName: !Ref S3Bucket
+        - SQSPollerPolicy:
+          QueueName: !GetAtt RendererSQSQueue.QueueName
+        - SQSSendMessagePolicy:
+          QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
 
   RendererRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -45,10 +58,23 @@ Resources:
       Environment:
         Variables:
           DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PDFGenerationSQSQueue.Arn
+            BatchSize: 1
       MemorySize: 512
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
         - !Ref PDFGeneratorRubyGemsLayer
+      Policies:
+        - S3CrudPolicy:
+          BucketName: !Ref S3Bucket
+        - SQSPollerPolicy:
+          QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
+        - SNSPublishMessagePolicy:
+          TopicName: !GetAtt DocumentsSNSTopic.TopicName
 
   PDFGeneratorRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -93,3 +119,31 @@ Resources:
       Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
       Type: String
       Value: !Ref DocumentsSNSTopic
+
+  RenderingSQSQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 360
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RenderingSQSDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  RenderingSQSDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  PDFGenerationSQSQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 360
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt PDFGenerationSQSDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  PDFGenerationSQSDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600

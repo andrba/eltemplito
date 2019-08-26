@@ -12,7 +12,7 @@ Parameters:
 Globals:
   Function:
     Runtime: ruby2.5
-    Timeout: 60
+    Timeout: 10
     Handler: lambda.Lambda.handler
     Environment:
       Variables:
@@ -25,22 +25,23 @@ Resources:
       CodeUri: 'app/functions/renderer/'
       Environment:
         Variables:
-          DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
+          RENDERING_QUEUE: !Ref RenderingSQSQueue
+          PDF_GENERATION_QUEUE: !Ref PDFGenerationSQSQueue
       Events:
         SQSEvent:
           Type: SQS
           Properties:
-            Queue: !GetAtt RendereingSQSQueue.Arn
-            BatchSize: 1
+            Queue: !GetAtt RenderingSQSQueue.Arn
+            BatchSize: 10
       Layers:
         - !Ref RendererRubyGemsLayer
       Policies:
         - S3CrudPolicy:
-          BucketName: !Ref S3Bucket
+            BucketName: !Ref S3Bucket
         - SQSPollerPolicy:
-          QueueName: !GetAtt RendererSQSQueue.QueueName
+            QueueName: !GetAtt RenderingSQSQueue.QueueName
         - SQSSendMessagePolicy:
-          QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
+            QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
 
   RendererRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -58,6 +59,7 @@ Resources:
       Environment:
         Variables:
           DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
+          PDF_GENERATION_QUEUE: !Ref PDFGenerationSQSQueue
       Events:
         SQSEvent:
           Type: SQS
@@ -70,11 +72,11 @@ Resources:
         - !Ref PDFGeneratorRubyGemsLayer
       Policies:
         - S3CrudPolicy:
-          BucketName: !Ref S3Bucket
+            BucketName: !Ref S3Bucket
         - SQSPollerPolicy:
-          QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
+            QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
         - SNSPublishMessagePolicy:
-          TopicName: !GetAtt DocumentsSNSTopic.TopicName
+            TopicName: !GetAtt DocumentsSNSTopic.TopicName
 
   PDFGeneratorRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -124,10 +126,18 @@ Resources:
     Type: 'AWS::SQS::Queue'
     Properties:
       ReceiveMessageWaitTimeSeconds: 20
-      VisibilityTimeout: 360
+      VisibilityTimeout: 60
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt RenderingSQSDeadLetterQueue.Arn
         maxReceiveCount: 3
+
+  RenderingSQSQueueSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Rendering SQS Queue"
+      Name: !Sub "/${Product}/${Environment}/RENDERING_SQS_QUEUE"
+      Type: String
+      Value: !Ref RenderingSQSQueue
 
   RenderingSQSDeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -138,7 +148,7 @@ Resources:
     Type: 'AWS::SQS::Queue'
     Properties:
       ReceiveMessageWaitTimeSeconds: 20
-      VisibilityTimeout: 360
+      VisibilityTimeout: 60
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt PDFGenerationSQSDeadLetterQueue.Arn
         maxReceiveCount: 3
@@ -147,3 +157,20 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       MessageRetentionPeriod: 1209600
+
+  DeadLetterQueueDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Alarm if DLQs contain messages"
+      Namespace: "AWS/SQS"
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: RenderingSQSDeadLetterQueueName
+          Value : !GetAtt RenderingSQSDeadLetterQueue.QueueName
+        - Name: PDFGenerationSQSDeadLetterQueueName
+          Value : !GetAtt PDFGenerationSQSDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold

@@ -2,12 +2,14 @@ require 'brotli'
 require 'pdf_generator'
 require 'aws-sdk-s3'
 require 'aws-sdk-sns'
+require 'partial_failurure_handler'
 
 DEFLATED_SOFFICE_PATH = '/opt/lo.tar.br';
 INFLATED_SOFFICE_PATH = '/tmp/instdir/program/soffice';
 
-s3_bucket = Aws::S3::Resource.new(region: ENV['AWS_REGION']).bucket(ENV['S3_BUCKET'])
-sns_topic = Aws::SNS::Resource.new(region: ENV['AWS_REGION']).topic(ENV['DOCUMENTS_SNS_TOPIC'])
+S3_BUCKET = Aws::S3::Resource.new(region: ENV['AWS_REGION']).bucket(ENV['S3_BUCKET'])
+PDF_GENERATION_QUEUE = Aws::SQS::Resource.new(region: ENV['AWS_REGION']).queue(ENV['PDF_GENERATION_QUEUE'])
+DOCUMENTS_SNS_TOPIC = Aws::SNS::Resource.new(region: ENV['AWS_REGION']).topic(ENV['DOCUMENTS_SNS_TOPIC'])
 
 File.open(INFLATED_SOFFICE_PATH, "wb") do |f|
   f.write(Brotli.inflate(DEFLATED_SOFFICE_PATH))
@@ -17,36 +19,26 @@ module Lambda
   module_function
 
   def handler(event:, context:)
-    rendered_file_path = "tmp/#{event[:rendered_file_name]}"
-    bucket.object(event[:rendered_file_name]).get(response_target: rendered_file_path)
+    PartialFailureHandler.new(queue: PDF_GENERATION_QUEUE, event: event).map do |record|
+      begin
+        document_file_path = "tmp/#{event['document_s3_path']}"
+        S3_BUCKET.object(event['s3_document_name']).download_file(document_file_path)
 
-    pdf_file_path = PdfGenerator.perform(file_path: rendered_file_path, soffice_path: INFLATED_SOFFICE_PATH)
-    pdf_file_name = File.basename(pdf_file_path, ".*")
+        pdf_file_path = PdfGenerator.perform(file_path: document_file_path, soffice_path: INFLATED_SOFFICE_PATH)
+        pdf_file_name = File.basename(pdf_file_path, ".*")
 
-    bucket.object(pdf_file_name).upload_file(pdf_file_path)
-    sns_topic.publish(
-      message: JSON.generate(
-        event.slice('resource_identifier').merge('document_url' => s3_object.presigned_url(:put))
-      ),
-      message_structure: :json,
-      message_attributes: {
-        type: {
-          data_type: :string,
-          string_value: event['type'] || 'unknown'
-        },
-        file_format: {
-          data_type: :string,
-          string_value: File.extname(file_name)
-        }
-      }
-    )
+        s3_object = S3_BUCKET.object(pdf_file_name).upload_file(pdf_file_path)
 
-  ensure
-    pdf_file_path.close
-    pdf_file_path.unlink
-  end
-
-  def bucket
-    Aws::S3::Resource.new.bucket(ENV['S3_BUCKET'])
+        sns_topic.publish(
+          message: JSON.generate('document_url' => s3_object.presigned_url(:put)),
+          message_structure: :json
+        )
+      ensure
+        [document_file_path, pdf_file_path].each do |file_path|
+          file_path.close unless file_path.closed?
+          File.unlink(file_path)
+        end
+      end
+    end
   end
 end

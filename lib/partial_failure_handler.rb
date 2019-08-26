@@ -1,16 +1,17 @@
+require 'json'
+
 class PartialFailureHandler
   include Enumerable
 
   attr_reader \
     :event,
-    :queue,
-    :succeeded_records,
     :failures
+    :queue,
 
   def initialize(queue:, event:)
-    @queue = queue
-    @event = event
     @failures = {}
+    @event = event
+    @queue = queue
   end
 
   def each(&block)
@@ -18,7 +19,7 @@ class PartialFailureHandler
 
     event['Records'].each do |record|
       begin
-        block.call(record)
+        block.call(JSON.parse(record))
       rescue => exception
         failures[record['messageId']] = exception.message
       end

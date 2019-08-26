@@ -40,7 +40,9 @@ task :build_layers do
     system!("cd .layers/#{layer_name} && \
              mv ruby/2.5.0 ruby/gems/ && \
              rm -rf ruby/gems/2.5.0/cache && \
-             rm -rf ruby/2.5.0")
+             rm -rf ruby/2.5.0 && \
+             mkdir ruby/lib && \
+             cp -r ../../lib/* ruby/lib")
   end
 
   system!("rm -rf .bundle")

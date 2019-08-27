@@ -10,7 +10,7 @@ module PdfGenerator
     --nofirststartwizard
   ]
 
-  class PdfGenerationError < StandardError;
+  class PdfGenerationError < StandardError; end
 
   module_function
 

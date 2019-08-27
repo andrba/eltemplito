@@ -30,5 +30,5 @@ rake deploy[stack-name,environment]
 ## Testing
 
 ```
-sam local invoke RendererLambdaFunction --event spec/fixtures/events/renderer_event.json --env-vars .env.json --skip-pull-image
+sam local invoke --event spec/fixtures/events/renderer_event.json --env-vars .env.json --skip-pull-image --region ap-southeast-2 RendererLambdaFunction
 ```

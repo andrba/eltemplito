@@ -25,7 +25,7 @@ Resources:
       CodeUri: 'app/functions/renderer/'
       Environment:
         Variables:
-          RENDERING_QUEUE: !Ref RenderingSQSQueue
+          EVENT_SOURCE_QUEUE_URL: !Ref RenderingSQSQueue
           PDF_GENERATION_QUEUE: !Ref PDFGenerationSQSQueue
       Events:
         SQSEvent:
@@ -58,8 +58,8 @@ Resources:
       CodeUri: 'app/functions/pdf_generator/'
       Environment:
         Variables:
+          EVENT_SOURCE_QUEUE_URL: !Ref PDFGenerationSQSQueue
           DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
-          PDF_GENERATION_QUEUE: !Ref PDFGenerationSQSQueue
       Events:
         SQSEvent:
           Type: SQS

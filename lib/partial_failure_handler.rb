@@ -1,17 +1,20 @@
 require 'json'
+require 'aws-sdk-sqs'
 
 class PartialFailureHandler
   include Enumerable
 
   attr_reader \
     :event,
-    :failures
-    :queue,
+    :failures,
+    :queue
 
-  def initialize(queue:, event:)
+  class PartialFailure < StandardError; end
+
+  def initialize(event)
     @failures = {}
     @event = event
-    @queue = queue
+    @queue = Aws::SQS::Resource.new(region: ENV['AWS_REGION']).queue(ENV['EVENT_SOURCE_QUEUE_URL'])
   end
 
   def each(&block)
@@ -21,17 +24,19 @@ class PartialFailureHandler
       begin
         block.call(JSON.parse(record))
       rescue => exception
-        failures[record['messageId']] = exception.message
+        failures[record['messageId']] = [exception.message, exception.backtrace]
       end
     end
 
     if failures.any?
       delete_succeeded_messages
-      raise PartialFailure, "Failed SQS messages in #{queue}: #{partial_failure_message}"
+      raise PartialFailure, "Failed SQS messages in #{queue.attributes['QueueArn']}: #{failures}"
     end
   end
 
   def delete_succeeded_messages
+    return if succeeded_records.none?
+
     queue.delete_messages(
       entries: succeeded_records.map do |record|
         {
@@ -43,6 +48,6 @@ class PartialFailureHandler
   end
 
   def succeeded_records
-    event['Records'].reject { |record| failures[record['messageId'] }
+    event['Records'].reject { |record| failures[record['messageId']] }
   end
 end

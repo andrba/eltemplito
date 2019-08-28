@@ -1,25 +1,22 @@
-# Bundler.require(:test, :renderer)
-
 require 'spec_helper'
-# require 'functions/renderer/lambda'
 
-RSpec.describe 'Lambda' do
+RSpec.describe 'RenderingLambdaFunction', integration: true do
+  let(:cloudformation) { Aws::CloudFormation::Client.new }
+  let(:stack_resources) { cloudformation.describe_stack_resources(stack_name: ENV['ELTEMPLITO_STACK_NAME']).stack_resources }
 
-  # let(:cloudformation) { Aws::CloudFormation::Client.new }
-  # let(:stack_resources) { cloudformation.describe_stack_resources(stack_name: ENV['ELTEMPLITO_STACK_NAME']).stack_resources }
+  let(:event_source_queue_url) { stack_resources.find { |resource| resource.logical_resource_id == 'RenderingSQSQueue' }.physical_resource_id }
+  let(:pdf_generation_queue_url) { stack_resources.find { |resource| resource.logical_resource_id == 'PDFGenerationSQSQueue' }.physical_resource_id }
+  let(:s3_bucket_name) {  stack_resources.find { |resource| resource.logical_resource_id == 'S3Bucket' }.physical_resource_id }
 
-  # let(:event_source_arn) { stack_resources.find { |resource| resource.logical_resource_id == 'RenderingSQSQueue' }.physical_resource_id }
-  # let(:lambdas) { stack_resources.select { |resource| resource.resource_type == 'AWS::Lambda::Function' } }
-  # let(:lambda) { }
-
-  # let(:s3_bucket_name) {  stack_resources.find { |resource| resource.logical_resource_id == 'S3Bucket' }.physical_resource_id }
-  # let(:even_source_queue_url) {  stack_resources.find { |resource| resource.logical_resource_id == 'RenderingSQSQueue' }.physical_resource_id }
-
-  # before do
-  #   allow(ENV).to receive(:[]).with('S3_BUCKET') { s3_bucket_name }
-  #   allow(ENV).to receive(:[]).with('EVENT_SOURCE_QUEUE_URL') { even_source_queue_url }
-  #   byebug
-  # end
+  let(:environment) {
+    {
+      'RendererLambdaFunction' => {
+        'S3_BUCKET' => s3_bucket_name,
+        'EVENT_SOURCE_QUEUE_URL' => event_source_queue_url,
+        'PDF_GENERATION_QUEUE_URL' => pdf_generation_queue_url
+      }
+    }
+  }
 
   let(:event_body) {
     JSON.generate(
@@ -53,14 +50,28 @@ RSpec.describe 'Lambda' do
     }
   }
 
-  let(:response) { system("sam local invoke --skip-pull-image RendererLambdaFunction << #{JSON.generate(event)}") }
+  around(:all) do |example|
+    env_file = Tempfile.new('env')
+    env_file.write(JSON.generate(environment))
+    env_file.close
+
+    @env_file_path = env_file.path
+    example.run
+  end
+
+  let(:response) {
+    args = ['--env-vars', @env_file_path, '--skip-pull-image', 'RendererLambdaFunction']
+
+    %i[stdout stderr status].zip(
+      Open3.capture3("sam local invoke #{args.join(' ')}", stdin_data: JSON.generate(event))
+    ).to_h.tap do |resp|
+      resp[:stdout] = eval(eval(resp[:stdout]))
+    end
+  }
 
   it 'responds successfully' do
-    expect(response).to include(statusCode: 200)
+    expect(response[:stdout][:successful]).not_to be_empty
+    expect(response[:stdout][:failed]).to be_empty
+    expect(response[:status].success?).to be_truthy
   end
-
-  it 'responds with error when an error is raised' do
-    expect(response).to include(statusCode: 500)
-  end
-
 end

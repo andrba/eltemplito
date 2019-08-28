@@ -14,6 +14,7 @@ group :renderer, :test, optional: true do
 end
 
 group :test do
+  gem 'pry'
   gem 'rspec'
   gem 'aws-sdk-cloudformation'
 end

@@ -22,7 +22,7 @@ class PartialFailureHandler
 
     event['Records'].each do |record|
       begin
-        block.call(JSON.parse(record))
+        block.call(JSON.parse(record['body']))
       rescue => exception
         failures[record['messageId']] = [exception.message, exception.backtrace]
       end

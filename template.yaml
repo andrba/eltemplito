@@ -26,7 +26,7 @@ Resources:
       Environment:
         Variables:
           EVENT_SOURCE_QUEUE_URL: !Ref RenderingSQSQueue
-          PDF_GENERATION_QUEUE: !Ref PDFGenerationSQSQueue
+          PDF_GENERATION_QUEUE_URL: !Ref PDFGenerationSQSQueue
       Events:
         SQSEvent:
           Type: SQS

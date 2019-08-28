@@ -56,7 +56,7 @@ task :package, [:bucket] do |_, args|
 end
 
 task :deploy, [:product, :environment] do |_, args|
-  system!("aws cloudformation deploy \
+  system!("sam deploy \
     --template-file .aws-sam/build/packaged-template.yaml \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides Product=#{args.product} Environment=#{args.environment} \

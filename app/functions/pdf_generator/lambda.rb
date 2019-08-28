@@ -18,9 +18,9 @@ module Lambda
   module_function
 
   def handler(event:, context:)
-    PartialFailureHandler.new(event: event).map do |record|
+    PartialFailureHandler.new(event).map do |params|
       begin
-        document_file_path = "tmp/#{event['document_s3_path']}"
+        document_file_path = "tmp/#{params['document_s3_path']}"
         S3_BUCKET.object(event['s3_document_name']).download_file(document_file_path)
 
         pdf_file_path = PdfGenerator.perform(file_path: document_file_path, soffice_path: INFLATED_SOFFICE_PATH)
@@ -33,9 +33,8 @@ module Lambda
           message_structure: :json
         )
       ensure
-        [document_file_path, pdf_file_path].reject(&:nil?).each do |file_path|
-          file_path.close unless file_path.closed?
-          File.unlink(file_path)
+        [document_file_path, pdf_file_path].each do |file_path|
+          file_path.close! unless file_path.nil? || file_path.closed?
         end
       end
     end

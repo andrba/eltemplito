@@ -14,7 +14,7 @@ class PartialFailureHandler
   def initialize(event)
     @failures = {}
     @event = event
-    @queue = Aws::SQS::Resource.new(region: ENV['AWS_REGION']).queue(ENV['EVENT_SOURCE_QUEUE_URL'])
+    @queue = Aws::SQS::Resource.new(region: ENV['AWS_REGION']).queue(ENV['EVENT_SOURCE_SQS_URL'])
   end
 
   def each(&block)

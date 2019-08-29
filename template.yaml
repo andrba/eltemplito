@@ -13,20 +13,21 @@ Globals:
   Function:
     Runtime: ruby2.5
     Timeout: 10
-    Handler: lambda.Lambda.handler
     Environment:
       Variables:
         S3_BUCKET: !Ref S3Bucket
 
 Resources:
-  RendererLambdaFunction:
+  DocumentRendererLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: 'app/functions/renderer/'
+      CodeUri: 'app/document_renderer/'
+      Handler: lambda.DocumentRenderer::Lambda.handler
       Environment:
         Variables:
-          EVENT_SOURCE_QUEUE_URL: !Ref RenderingSQSQueue
-          PDF_GENERATION_QUEUE_URL: !Ref PDFGenerationSQSQueue
+          EVENT_SOURCE_SQS_URL: !Ref RenderingSQSQueue
+          PDF_GENERATION_SQS_URL: !Ref PDFGenerationSQSQueue
+          EVENT_DEST_SNS_TOPIC: !Ref DocumentsSNSTopic
       Events:
         SQSEvent:
           Type: SQS
@@ -34,20 +35,22 @@ Resources:
             Queue: !GetAtt RenderingSQSQueue.Arn
             BatchSize: 10
       Layers:
-        - !Ref RendererRubyGemsLayer
+        - !Ref DocumentRendererRubyGemsLayer
+        - !Ref CommonRubyGemsLayer
+        - !Ref LibLayer
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
         - SQSPollerPolicy:
             QueueName: !GetAtt RenderingSQSQueue.QueueName
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt DocumentsSNSTopic.TopicName
 
-  RendererRubyGemsLayer:
+  DocumentRendererRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: renderer
-      ContentUri: .layers/renderer/
+      LayerName: document_renderer
+      ContentUri: .layers/document_renderer/
       CompatibleRuntimes:
         - ruby2.5
       RetentionPolicy: Delete
@@ -55,11 +58,12 @@ Resources:
   PDFGeneratorLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: 'app/functions/pdf_generator/'
+      CodeUri: 'app/pdf_generator/'
+      Handler: lambda.PDFGenerator::Lambda.handler
       Environment:
         Variables:
-          EVENT_SOURCE_QUEUE_URL: !Ref PDFGenerationSQSQueue
-          DOCUMENTS_SNS_TOPIC: !Ref DocumentsSNSTopic
+          EVENT_SOURCE_SQS_URL: !Ref PDFGenerationSQSQueue
+          EVENT_DEST_SNS_TOPIC: !Ref DocumentsSNSTopic
       Events:
         SQSEvent:
           Type: SQS
@@ -70,6 +74,8 @@ Resources:
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
         - !Ref PDFGeneratorRubyGemsLayer
+        - !Ref CommonRubyGemsLayer
+        - !Ref LibLayer
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
@@ -83,6 +89,24 @@ Resources:
     Properties:
       LayerName: pdf_generator
       ContentUri: .layers/pdf_generator/
+      CompatibleRuntimes:
+        - ruby2.5
+      RetentionPolicy: Delete
+
+  CommonRubyGemsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: common_gems
+      ContentUri: .layers/common/
+      CompatibleRuntimes:
+        - ruby2.5
+      RetentionPolicy: Delete
+
+  LibLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: lib
+      ContentUri: .layers/lib/
       CompatibleRuntimes:
         - ruby2.5
       RetentionPolicy: Delete
@@ -114,14 +138,6 @@ Resources:
   DocumentsSNSTopic:
     Type: AWS::SNS::Topic
 
-  DocumentsSNSTopicSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Documents SNS Topic"
-      Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
-      Type: String
-      Value: !Ref DocumentsSNSTopic
-
   RenderingSQSQueue:
     Type: 'AWS::SQS::Queue'
     Properties:
@@ -130,14 +146,6 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt RenderingSQSDeadLetterQueue.Arn
         maxReceiveCount: 3
-
-  RenderingSQSQueueSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Rendering SQS Queue"
-      Name: !Sub "/${Product}/${Environment}/RENDERING_SQS_QUEUE"
-      Type: String
-      Value: !Ref RenderingSQSQueue
 
   RenderingSQSDeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -157,6 +165,30 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       MessageRetentionPeriod: 1209600
+
+  DocumentsSNSTopicSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Documents SNS Topic"
+      Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
+      Type: String
+      Value: !Ref DocumentsSNSTopic
+
+  RenderingSQSQueueSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Rendering SQS Queue"
+      Name: !Sub "/${Product}/${Environment}/RENDERING_SQS_QUEUE"
+      Type: String
+      Value: !Ref RenderingSQSQueue
+
+  PDFGenerationSQSQueueSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "PDF generation SQS Queue"
+      Name: !Sub "/${Product}/${Environment}/PDF_GENERATION_SQS_QUEUE"
+      Type: String
+      Value: !Ref PDFGenerationSQSQueue
 
   DeadLetterQueueDepthAlarm:
     Type: AWS::CloudWatch::Alarm

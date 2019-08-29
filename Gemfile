@@ -1,20 +1,23 @@
 source 'https://rubygems.org'
 
-gem 'aws-sdk-s3'
-gem 'aws-sdk-sqs'
-
 group :pdf_generator, optional: true do
   gem 'brotli'
-  gem 'aws-sdk-sns'
 end
 
-group :renderer, :test, optional: true do
-  gem 'down'
+group :document_renderer, optional: true do
   gem 'sablon'
+end
+
+group :common, optional: true do
+  gem 'aws-sdk-s3'
+  gem 'aws-sdk-sqs'
+  gem 'aws-sdk-sns'
+  gem 'down'
 end
 
 group :test do
   gem 'pry'
   gem 'rspec'
   gem 'aws-sdk-cloudformation'
+  gem 'aws-sdk-lambda'
 end

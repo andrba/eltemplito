@@ -8,6 +8,7 @@ Parameters:
   Environment:
     Description: An environment name that will be prefixed to resource names
     Type: String
+    Default: development
 
 Globals:
   Function:
@@ -16,97 +17,102 @@ Globals:
     Environment:
       Variables:
         S3_BUCKET: !Ref S3Bucket
+        DOCUMENTS_TABLE: !Ref DocumentsDBTable
 
 Resources:
-  DocumentRendererLambdaFunction:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      DefinitionUri: ./swagger.yaml
+
+  CreateDocumentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: 'app/document_renderer/'
-      Handler: lambda.DocumentRenderer::Lambda.handler
-      Environment:
-        Variables:
-          EVENT_SOURCE_SQS_URL: !Ref RenderingSQSQueue
-          PDF_GENERATION_SQS_URL: !Ref PDFGenerationSQSQueue
-          EVENT_DEST_SNS_TOPIC: !Ref DocumentsSNSTopic
-      Events:
-        SQSEvent:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt RenderingSQSQueue.Arn
-            BatchSize: 10
+      CodeUri: 'app/create_document/'
+      Handler: lambda.CreateDocument::Lambda.handler
       Layers:
-        - !Ref DocumentRendererRubyGemsLayer
-        - !Ref CommonRubyGemsLayer
-        - !Ref LibLayer
-      Policies:
-        - S3CrudPolicy:
-            BucketName: !Ref S3Bucket
-        - SQSPollerPolicy:
-            QueueName: !GetAtt RenderingSQSQueue.QueueName
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt DocumentsSNSTopic.TopicName
+        - !Ref CreateDocumentGemsLayer
+        - !Ref SharedLayer
+      Policies: AWSLambdaDynamoDBExecutionRole
 
-  DocumentRendererRubyGemsLayer:
+  CreateDocumentGemsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: document_renderer
-      ContentUri: .layers/document_renderer/
+      LayerName: create-document-gems
+      ContentUri: .layers/create_document/
       CompatibleRuntimes:
         - ruby2.5
       RetentionPolicy: Delete
 
-  PDFGeneratorLambdaFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: 'app/pdf_generator/'
-      Handler: lambda.PDFGenerator::Lambda.handler
-      Environment:
-        Variables:
-          EVENT_SOURCE_SQS_URL: !Ref PDFGenerationSQSQueue
-          EVENT_DEST_SNS_TOPIC: !Ref DocumentsSNSTopic
-      Events:
-        SQSEvent:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt PDFGenerationSQSQueue.Arn
-            BatchSize: 1
-      MemorySize: 512
-      Layers:
-        - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
-        - !Ref PDFGeneratorRubyGemsLayer
-        - !Ref CommonRubyGemsLayer
-        - !Ref LibLayer
-      Policies:
-        - S3CrudPolicy:
-            BucketName: !Ref S3Bucket
-        - SQSPollerPolicy:
-            QueueName: !GetAtt PDFGenerationSQSQueue.QueueName
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt DocumentsSNSTopic.TopicName
 
-  PDFGeneratorRubyGemsLayer:
+  # DispatchEventFunction:
+  #   Type: AWS::Serverless::Function
+  #     Properties:
+  #       CodeUri: 'app/dispatch_event/'
+  #       Handler: lambda.CreateDocument::Lambda.handler
+  #       Events:
+  #         Stream:
+  #           Type: DynamoDB
+  #           Properties:
+  #             Stream: !GetAtt DocumentsDBTable.StreamArn
+  #             BatchSize: 10
+  #             # MaximumBatchingWindowInSeconds: 10
+  #             StartingPosition: LATEST
+  #       Policies: AWSLambdaDynamoDBExecutionRole
+
+  # RendererTemplateFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: 'app/render_template/'
+  #     Handler: lambda.RenderTemplate::Lambda.handler
+  #     Layers:
+  #       - !Ref RenderTemplateRubyGemsLayer
+  #       - !Ref SharedLayer
+  #     Policies:
+  #       - S3CrudPolicy:
+  #           BucketName: !Ref S3Bucket
+  #       - SNSPublishMessagePolicy:
+  #           TopicName: !GetAtt DocumentsSNSTopic.TopicName
+
+  # RenderTemplateRubyGemsLayer:
+  #   Type: AWS::Serverless::LayerVersion
+  #   Properties:
+  #     LayerName: render-template-gems
+  #     ContentUri: .layers/render_template/
+  #     CompatibleRuntimes:
+  #       - ruby2.5
+  #     RetentionPolicy: Delete
+
+  # GeneratePDFFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: 'app/generate_pdf/'
+  #     Handler: lambda.GeneratePDF::Lambda.handler
+  #     MemorySize: 512
+  #     Layers:
+  #       - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
+  #       - !Ref GeneratePDFRubyGemsLayer
+  #       - !Ref SharedLayer
+  #       - !Ref LibLayer
+  #     Policies:
+  #       - S3CrudPolicy:
+  #           BucketName: !Ref S3Bucket
+
+  # GeneratePDFRubyGemsLayer:
+  #   Type: AWS::Serverless::LayerVersion
+  #   Properties:
+  #     LayerName: generage-pdf-gems
+  #     ContentUri: .layers/generate_pdf/
+  #     CompatibleRuntimes:
+  #       - ruby2.5
+  #     RetentionPolicy: Delete
+
+  SharedLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: pdf_generator
-      ContentUri: .layers/pdf_generator/
-      CompatibleRuntimes:
-        - ruby2.5
-      RetentionPolicy: Delete
-
-  CommonRubyGemsLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: common_gems
-      ContentUri: .layers/common/
-      CompatibleRuntimes:
-        - ruby2.5
-      RetentionPolicy: Delete
-
-  LibLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: lib
-      ContentUri: .layers/lib/
+      LayerName: shared
+      ContentUri: .layers/shared/
       CompatibleRuntimes:
         - ruby2.5
       RetentionPolicy: Delete
@@ -127,82 +133,57 @@ Resources:
             ExpirationInDays: 14
             Status: Enabled
 
-  S3BucketSSMParameter:
-    Type: AWS::SSM::Parameter
+  DocumentsDBTable:
+    Type: AWS::DynamoDB::Table
     Properties:
-      Description : "S3 Bucket"
-      Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
-      Type: String
-      Value: !Ref S3Bucket
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
-  DocumentsSNSTopic:
-    Type: AWS::SNS::Topic
+  # DocumentsSNSTopic:
+  #   Type: AWS::SNS::Topic
 
-  RenderingSQSQueue:
-    Type: 'AWS::SQS::Queue'
-    Properties:
-      ReceiveMessageWaitTimeSeconds: 20
-      VisibilityTimeout: 60
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt RenderingSQSDeadLetterQueue.Arn
-        maxReceiveCount: 3
+  # DeadLetterQueue:
+  #   Type: AWS::SQS::Queue
+  #   Properties:
+  #     MessageRetentionPeriod: 1209600
 
-  RenderingSQSDeadLetterQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 1209600
+  # S3BucketSSMParameter:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #     Description : "S3 Bucket"
+  #     Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
+  #     Type: String
+  #     Value: !Ref S3Bucket
 
-  PDFGenerationSQSQueue:
-    Type: 'AWS::SQS::Queue'
-    Properties:
-      ReceiveMessageWaitTimeSeconds: 20
-      VisibilityTimeout: 60
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt PDFGenerationSQSDeadLetterQueue.Arn
-        maxReceiveCount: 3
+  # DocumentsSNSTopicSSMParameter:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #     Description : "Documents SNS Topic"
+  #     Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
+  #     Type: String
+  #     Value: !Ref DocumentsSNSTopic
 
-  PDFGenerationSQSDeadLetterQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 1209600
-
-  DocumentsSNSTopicSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Documents SNS Topic"
-      Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
-      Type: String
-      Value: !Ref DocumentsSNSTopic
-
-  RenderingSQSQueueSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Rendering SQS Queue"
-      Name: !Sub "/${Product}/${Environment}/RENDERING_SQS_QUEUE"
-      Type: String
-      Value: !Ref RenderingSQSQueue
-
-  PDFGenerationSQSQueueSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "PDF generation SQS Queue"
-      Name: !Sub "/${Product}/${Environment}/PDF_GENERATION_SQS_QUEUE"
-      Type: String
-      Value: !Ref PDFGenerationSQSQueue
-
-  DeadLetterQueueDepthAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: "Alarm if DLQs contain messages"
-      Namespace: "AWS/SQS"
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: RenderingSQSDeadLetterQueueName
-          Value : !GetAtt RenderingSQSDeadLetterQueue.QueueName
-        - Name: PDFGenerationSQSDeadLetterQueueName
-          Value : !GetAtt PDFGenerationSQSDeadLetterQueue.QueueName
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 0
-      ComparisonOperator: GreaterThanThreshold
+  # DeadLetterQueueDepthAlarm:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     AlarmDescription: "Alarm if DLQs contain messages"
+  #     Namespace: "AWS/SQS"
+  #     MetricName: ApproximateNumberOfMessagesVisible
+  #     Dimensions:
+  #       - Name: LetterQueueName
+  #         Value : !GetAtt DeadLetterQueue.QueueName
+  #     Statistic: Sum
+  #     Period: 300
+  #     EvaluationPeriods: 1
+  #     Threshold: 0
+  #     ComparisonOperator: GreaterThanThreshold

@@ -5,7 +5,7 @@ require 'aws-sdk-s3'
 require 'aws-sdk-sns'
 require 'partial_failure_handler'
 
-module Renderer::Lambda
+module RenderTemplate::Lambda
   S3 = Aws::S3::Resource.new
   SNS = Aws::SNS::Resource.new
   SQS = Aws::SQS::Resource.new

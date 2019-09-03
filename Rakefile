@@ -41,10 +41,13 @@ task :build_layers do
               mv ruby/2.5.0 ruby/gems/ && \
               rm -rf ruby/gems/2.5.0/cache && \
               rm -rf ruby/2.5.0")
-    end
 
-    FileUtils.mkdir_p(".layers/lib/ruby")
-    FileUtils.ln_s(File.expand_path("lib/"), File.expand_path(".layers/lib/ruby/lib"), force: true)
+      if layer_name == 'shared'
+        FileUtils.ln_s(File.expand_path("lib/"),
+                       File.expand_path(".layers/#{layer_name}/ruby/lib"),
+                       force: true)
+      end
+    end
   ensure
     system!("rm -rf .bundle")
   end

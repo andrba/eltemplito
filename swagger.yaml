@@ -1,0 +1,56 @@
+openapi: "3.0.0"
+info:
+  title: "eltemplito-api"
+  version: "v1.0"
+path́:
+  /documents:
+    post:
+      description: >-
+        Request document creation. It takes a JSON
+        object containing a template url, an output format and an
+        optional JSON object with merge fields.
+      x-amazon-apigateway-integration:
+        uri:
+          Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateDocumentFunction.Arn}/invocations"
+        passthroughBehavior: never
+        httpMethod: POST
+        type: aws_proxy
+      summary: Create a New Document
+      operationId: createDocument
+      requestBody:
+        $ref: '#/components/requestBodies/Document'
+      responses:
+        202:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: '0e1a0d0e-2e38-4e7a-a060-540a5c6865a4'
+externalDocs:
+  description: Find out more about Eltemplito
+  url: 'https://github.com/andrba/eltemplito'
+components:
+  requestBodies:
+    Document:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              template_url:
+                type: string
+                example: 'https://my-app.com/templates/template.yml'
+              output_format:
+                type: string
+                enum:
+                  - docx
+                  - pdf
+                example: 'pdf'
+              merge_fields:
+                type: object
+                example:
+                  content: 'The best things in life are not things'

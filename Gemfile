@@ -1,18 +1,21 @@
 source 'https://rubygems.org'
 
-group :pdf_generator, optional: true do
+group :generate_pdf, optional: true do
   gem 'brotli'
 end
 
-group :document_renderer, optional: true do
+group :render_template, optional: true do
   gem 'sablon'
 end
 
-group :common, optional: true do
-  gem 'aws-sdk-s3'
-  gem 'aws-sdk-sqs'
-  gem 'aws-sdk-sns'
+group :create_document, optional: true do
   gem 'down'
+end
+
+group :shared, optional: true do
+  gem 'aws-sdk-s3'
+  gem 'dynamoid'
+  gem 'carrierwave-aws'
 end
 
 group :test do

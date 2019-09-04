@@ -35,6 +35,13 @@ Resources:
         - !Ref CreateDocumentGemsLayer
         - !Ref SharedLayer
       Policies: AWSLambdaDynamoDBExecutionRole
+      Events:
+        PostDocumentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /documents
+            Method: POST
 
   CreateDocumentGemsLayer:
     Type: AWS::Serverless::LayerVersion

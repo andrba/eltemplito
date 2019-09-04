@@ -2,6 +2,14 @@ openapi: "3.0.0"
 info:
   title: "eltemplito-api"
   version: "v1.0"
+
+x-amazon-apigateway-request-validators:
+  full:
+    validateRequestBody: true
+    validateRequestParameters: true
+
+x-amazon-apigateway-request-validator: full
+
 path́:
   /documents:
     post:
@@ -30,9 +38,11 @@ path́:
                   id:
                     type: string
                     example: '0e1a0d0e-2e38-4e7a-a060-540a5c6865a4'
+
 externalDocs:
   description: Find out more about Eltemplito
   url: 'https://github.com/andrba/eltemplito'
+
 components:
   requestBodies:
     Document:

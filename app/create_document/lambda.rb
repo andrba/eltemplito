@@ -1,33 +1,35 @@
 require 'down'
-require 'document'
 require 'aws-sdk-s3'
+require 'document_repository'
+require 'json_response'
+require 'pipeline'
 
 module CreateDocument::Lambda
+  include JsonResponse
+
   S3 = Aws::S3::Resource.new
+  DB = Aws::DynamoDB::Resource.new
 
   module_function def handler(event:, context:)
     request = JSON.parse(event['body'])
 
-    document_file = Down.download(request['document_url'], max_size: ENV.fetch('MAX_TEMPLATE_SIZE', 5 * 1024 * 1024))
+    input_file = Down.download(request['file_url'], max_size: ENV.fetch('MAX_TEMPLATE_SIZE', 5 * 1024 * 1024))
 
-    document = Document.new(id: SecureRandom.uuid, file: document_file, pipeline: [])
+    s3_object_key = "#{request['request_id']}/#{SecureRandom.hex}-#{input_file.original_filename}"
 
-    if document.save
-      json_response(202, id: document.id)
-    else
-      json_response(422, document.errors)
-    end
-  end
+    s3_object = S3.bucket(ENV['S3_BUCKET']).
+                   object(s3_object_key).
+                   upload_file(input_file.path)
 
-  private
+    pipeline = Pipeline.build_from_request(request)
 
-  def json_response(code, body = {})
-    {
-      'statusCode' => code,
-      'headers' => {
-        'Content-Type' => 'application/json'
-      },
-      'body' => JSON.generate(body)
-    }
+    DocumentRepository.create(
+      id:           request['request_id'],
+      input_file:   s3_object_key,
+      merge_fields: request['merge_fields'],
+      pipeline:     pipeline
+    )
+
+    json_response(202, id: request['request_id'])
   end
 end

@@ -1,5 +1,11 @@
 .aws-sam
-.layers
 .bundle
 vendor
 .env.json
+.DS_Store
+
+# Ignore all layers except for shared libraries
+layers/*
+!layers/shared
+layers/shared/ruby/*
+!layers/shared/ruby/lib

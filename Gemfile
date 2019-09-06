@@ -12,15 +12,18 @@ group :create_document, optional: true do
   gem 'down'
 end
 
-group :shared, optional: true do
-  gem 'aws-sdk-s3'
-  gem 'dynamoid'
-  gem 'carrierwave-aws'
+group :listen_document_stream, optional: true do
+  gem 'aws-sdk-sns'
 end
 
-group :test do
+group :shared, optional: true do
+  gem 'aws-sdk-s3'
+  gem 'aws-sdk-dynamodb'
+  gem 'aws-sdk-lambda'
+end
+
+group :test, :development do
   gem 'pry'
   gem 'rspec'
   gem 'aws-sdk-cloudformation'
-  gem 'aws-sdk-lambda'
 end

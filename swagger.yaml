@@ -10,7 +10,7 @@ x-amazon-apigateway-request-validators:
 
 x-amazon-apigateway-request-validator: full
 
-path́:
+paths:
   /documents:
     post:
       description: >-
@@ -21,6 +21,8 @@ path́:
         uri:
           Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateDocumentFunction.Arn}/invocations"
         passthroughBehavior: never
+        # requestTemplates:
+        #   application/json: "{ \"request_id\": \"$context.requestId\" }"
         httpMethod: POST
         type: aws_proxy
       summary: Create a New Document
@@ -51,7 +53,7 @@ components:
           schema:
             type: object
             properties:
-              template_url:
+              file_url:
                 type: string
                 example: 'https://my-app.com/templates/template.yml'
               output_format:

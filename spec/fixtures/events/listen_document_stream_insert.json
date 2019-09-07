@@ -1,0 +1,52 @@
+{
+  "Records": [
+    {
+      "eventID": "f07f8ca4b0b26cb9c4e5e77e69f274ee",
+      "eventName": "INSERT",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "us-east-1",
+      "userIdentity":{
+        "type":"Service",
+        "principalId":"dynamodb.amazonaws.com"
+      },
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1480642020,
+        "Keys": {
+          "id": {
+            "S": "77880a9c-1822-4205-abc2-4bf39ecc9f83"
+          }
+        },
+        "NewImage": {
+          "input_file": {
+            "S": "77880a9c-1822-4205-abc2-4bf39ecc9f83/original-template.docx"
+          },
+          "pipeline": {
+            "L": [
+              {
+                "S": "RENDER_TEMPLATE_FUNCTION"
+              },
+              {
+                "S": "GENERATE_PDF_FUNCTION"
+              }
+            ]
+          },
+          "merge_fields": {
+            "M": {
+              "content": {
+                "S": "The best things in life are not things"
+              }
+            }
+          },
+          "status": {
+            "S": "pending"
+          }
+        },
+        "SequenceNumber": "1405400000000002063282832",
+        "SizeBytes": 54,
+        "StreamViewType": "NEW_IMAGES"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:us-east-1:123456789012:table/Example-Table/stream/2016-12-01T00:00:00.000"
+    }
+  ]
+}

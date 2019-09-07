@@ -30,5 +30,6 @@ rake deploy[stack-name,environment,s3_bucket_name]
 
 ```
 sam local start-api --env-vars .env.json
-sam local invoke --event spec/fixtures/events/renderer_event.json --env-vars .env.json --skip-pull-image --region ap-southeast-2 RendererLambdaFunction
+sam local invoke --event spec/fixtures/events/renderer_event.json --env-vars .env.json RendererLambdaFunction
+sam local invoke --event spec/fixtures/events/listen_document_stream_insert.json --env-vars .env.json ListenDocumentStreamFunction
 ```

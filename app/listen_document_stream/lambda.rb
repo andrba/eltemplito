@@ -15,13 +15,13 @@ module ListenDocumentStream
         when 'INSERT'
           Lambda.invoke_async(
             function_name: ENV['DISPATCHR_FUNCTION'],
-            invoke_args: params
+            invoke_args: JSON.generate(params)
           )
         when 'MODIFY'
-          response = body.slice('id', 'status')
+          response = params.slice('id', 'status')
 
-          if body['status'] == 'success'
-            document_url = S3.bucket(ENV['S3_BUCKET']).object(body['document']).presigned_url(:get)
+          if params['status'] == 'success'
+            document_url = S3.bucket(ENV['S3_BUCKET']).object(params['document']).presigned_url(:get)
             response['document_url'] = document_url
           end
 

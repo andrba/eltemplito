@@ -6,25 +6,29 @@ require 'aws-sdk-lambda'
 
 module RenderTemplate
   module Lambda
-    S3 = Aws::S3::Resource.new
-    SNS = Aws::SNS::Resource.new
-    SQS = Aws::SQS::Resource.new
+    S3      = Aws::S3::Client.new
+    Lambda  = Aws::Lambda::Resource.new
 
     module_function def handler(event:, context:)
-      input_file = Tempfile.new('input_file')
-      input_file.write S3.bucket(ENV['S3_BUCKET'].object(event['input_file']).get.body
-      input_file.close
+      file_name = File.basename(event['input_file'])
+      file_path = "/tmp/#{file_name}"
 
-      rendered_document = Sablon.template(input_file.path).render_to_string(params['merge_fields'])
+      S3.get_object(bucket: ENV['S3_BUCKET'],
+                    key: event['input_file'],
+                    target: file_path)
 
-      document_id = SecureRandom.uuid
-      s3_document_name = "#{document_id}-#{File.basename(input_file.original_filename)}"
+      rendered_document = Sablon.template(file_path).render_to_string(event['merge_fields'])
 
-      S3.bucket([ENV['S3_BUCKET']).object(s3_document_name).put(body: rendered_document)
+      s3_object = S3.put_object(bucket: [ENV['S3_BUCKET'],
+                                key: "#{event['id']}/rendered/#{file_name}",
+                                body: rendered_document)
 
-      params.slice('output_format').merge!('document_url' => s3_object.presigned_url(:get))
+      Lambda.invoke_async(
+        function_name: ENV['DISPATCHR_FUNCTION'],
+        invoke_args: JSON.generate(event.merge('input_file' s3_object.key))
+      )
     ensure
-      input_file.close unless input_file.nil? || input_file.closed?
+      File.delete(file_path) if File.exist?(file_path)
     end
   end
 end

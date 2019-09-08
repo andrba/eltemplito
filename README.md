@@ -1,13 +1,26 @@
 # El Templito
 
-El Templito is an AWS Lambda driven templating service. It takes a `.docx` template file with `MailMerge` fields in it, replaces the fields with the provided values and generates a `PDF` file from the rendered template.
+El Templito is an AWS Lambda driven templating service. It performs the following operations:
+
+1. Given a `.docx` template file with optional `MailMerge` fields in it, replace the fields with values from a `merge_fields` parameter and save the result as `.docx` document.
+2. Given an office document, e.g. `.docx` or `.xlsx`, convert the document into a `.pdf` format.
+3. A combination of the first and the second operation.
+
+## Architecture
 
 <img width="1138" alt="Screen Shot 2019-09-06 at 11 11 44 pm" src="https://user-images.githubusercontent.com/2174682/64430504-c14e1780-d0fb-11e9-9529-0acffe5f9160.png">
 
-The Document Processing Unit is based on two Lambda functions orchestrated by a Dispatchr function:
+### API documentation
 
-1. Renderer. Based on [Sablon](https://github.com/senny/sablon)
-2. PDF Generator. Based on LibreOffice
+https://app.swaggerhub.com/apis-docs/eltemplito/eltemplito/1.0.0
+
+
+### Dependencies
+
+Framework: [SAM](https://aws.amazon.com/serverless/sam)
+
+Template rendering is based on [Sablon](https://github.com/senny/sablon)
+PDF generation is based on [LibreOffice](https://github.com/LibreOffice/core)
 
 ## Building
 
@@ -17,6 +30,9 @@ rake build
 
 # Build Layers
 rake build_layers
+
+# Build a specific layer
+rake build_layers[shared]
 ```
 
 ## Deploying

@@ -22,6 +22,9 @@ Globals:
       Variables:
         S3_BUCKET: !Ref S3Bucket
         DOCUMENTS_TABLE: !Ref DocumentsDBTable
+        SSM_PATH: !Sub "/${Product}/${Environment}"
+    Layers:
+      - !Ref SharedLayer
 
 Resources:
   ApiGateway:
@@ -41,12 +44,13 @@ Resources:
       Handler: lambda.CreateDocument::Lambda.handler
       Layers:
         - !Ref CreateDocumentGemsLayer
-        - !Ref SharedLayer
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
         - DynamoDBCrudPolicy:
             TableName: !Ref DocumentsDBTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub "/${Product}/${Environment}/*"
       Events:
         PostDocumentApi:
           Type: Api
@@ -72,7 +76,6 @@ Resources:
       Environment:
         Variables:
           DOCUMENTS_TOPIC: !Ref DocumentsSNSTopic
-          DISPATCHR_FUNCTION: !Ref DispatchrFunction
       Events:
         Stream:
           Type: DynamoDB
@@ -83,14 +86,14 @@ Resources:
             StartingPosition: LATEST
       Layers:
         - !Ref ListenDocumentStreamGemsLayer
-        - !Ref SharedLayer
       Policies:
+        - DispatchrFunctionInvokePolicy
         - DynamoDBReadPolicy:
             TableName: !Ref DocumentsDBTable
-        - LambdaInvokePolicy:
-            FunctionName: !Ref DispatchrFunction
         - SNSPublishMessagePolicy:
             TopicName: !Ref DocumentsSNSTopic
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub "/${Product}/${Environment}/*"
 
   ListenDocumentStreamGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -106,36 +109,25 @@ Resources:
     Properties:
       CodeUri: 'app/dispatchr/'
       Handler: lambda.Dispatchr::Lambda.handler
-      Environment:
-        Variables:
-          RENDER_TEMPLATE_FUNCTION: !Ref RenderTemplateFunction
-          GENERATE_PDF_FUNCTION: !Ref GeneratePDFFunction
-      Layers:
-        - !Ref SharedLayer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DocumentsDBTable
         - LambdaInvokePolicy:
-            FunctionName: !Ref RendererTemplateFunction
+            FunctionName: !Ref RenderTemplateFunction
         - LambdaInvokePolicy:
-            FunctionName: !Ref GeneratePDFFunction
+            FunctionName: !Ref GeneratePdfFunction
 
-  RendererTemplateFunction:
+  RenderTemplateFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/render_template/'
       Handler: lambda.RenderTemplate::Lambda.handler
-      Environment:
-        Variables:
-          DISPATCHR_FUNCTION: !Ref DispatchrFunction
       Layers:
         - !Ref RenderTemplateRubyGemsLayer
-        - !Ref SharedLayer
       Policies:
+        - DispatchrFunctionInvokePolicy
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
-        - LambdaInvokePolicy:
-            FunctionName: !Ref DispatchrFunction
 
   RenderTemplateRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -146,26 +138,21 @@ Resources:
         - ruby2.5
       RetentionPolicy: Delete
 
-  GeneratePDFFunction:
+  GeneratePdfFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/generate_pdf/'
-      Handler: lambda.GeneratePDF::Lambda.handler
+      Handler: lambda.GeneratePdf::Lambda.handler
       MemorySize: 512
-      Environment:
-        Variables:
-          DISPATCHR_FUNCTION: !Ref DispatchrFunction
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
-        - !Ref GeneratePDFRubyGemsLayer
-        - !Ref SharedLayer
+        - !Ref GeneratePdfRubyGemsLayer
       Policies:
+        - DispatchrFunctionInvokePolicy
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
-        - LambdaInvokePolicy:
-            FunctionName: !Ref DispatchrFunction
 
-  GeneratePDFRubyGemsLayer:
+  GeneratePdfRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: generage-pdf-gems
@@ -218,26 +205,62 @@ Resources:
   DocumentsSNSTopic:
     Type: AWS::SNS::Topic
 
+  DispatchrFunctionInvokePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "invoke-dispatchr-function"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Action: "lambda:InvokeFunction"
+            Resource: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${DispatchrFunction}*"
+
+  S3BucketSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "S3 Bucket"
+      Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
+      Type: String
+      Value: !Ref S3Bucket
+
+  DocumentsSNSTopicSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Documents SNS Topic"
+      Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
+      Type: String
+      Value: !Ref DocumentsSNSTopic
+
+  DispatchrFunctionSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Dispatchr Function"
+      Name: !Sub "/${Product}/${Environment}/functions/DISPATCHR_FUNCTION"
+      Type: String
+      Value: !Ref DispatchrFunction
+
+  RenderTemplateFunctionSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Render Template Function"
+      Name: !Sub "/${Product}/${Environment}/functions/RENDER_TEMPLATE_FUNCTION"
+      Type: String
+      Value: !Ref RenderTemplateFunction
+
+  GeneratePdfFunctionSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Generate PDF Function"
+      Name: !Sub "/${Product}/${Environment}/functions/GENERATE_PDF_FUNCTION"
+      Type: String
+      Value: !Ref GeneratePdfFunction
+
   # DeadLetterQueue:
   #   Type: AWS::SQS::Queue
   #   Properties:
   #     MessageRetentionPeriod: 1209600
-
-  # S3BucketSSMParameter:
-  #   Type: AWS::SSM::Parameter
-  #   Properties:
-  #     Description : "S3 Bucket"
-  #     Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
-  #     Type: String
-  #     Value: !Ref S3Bucket
-
-  # DocumentsSNSTopicSSMParameter:
-  #   Type: AWS::SSM::Parameter
-  #   Properties:
-  #     Description : "Documents SNS Topic"
-  #     Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
-  #     Type: String
-  #     Value: !Ref DocumentsSNSTopic
 
   # DeadLetterQueueDepthAlarm:
   #   Type: AWS::CloudWatch::Alarm

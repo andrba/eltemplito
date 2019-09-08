@@ -1,14 +1,17 @@
 require 'aws-sdk-s3'
 require 'aws-sdk-lambda'
+require 'aws-ssm-env'
 require 'brotli'
 require 'office'
 
 module GeneratePdf
   module Lambda
-    S3 = Aws::S3::Resource.new
+    S3 = Aws::S3::Client.new
 
     DEFLATED_SOFFICE_PATH = '/opt/lo.tar.br';
     INFLATED_SOFFICE_PATH = '/tmp/instdir/program/soffice';
+
+    AwsSsmEnv.load!(begins_with: "#{ENV['SSM_PATH']}/functions/")
 
     def inflate_soffice
       return if File.exists?(INFLATED_SOFFICE_PATH)
@@ -21,22 +24,24 @@ module GeneratePdf
     module_function def handler(event:, context:)
       inflate_soffice
 
-      input_file = S3.bucket(ENV['S3_BUCKET']).get()
+      inptu_file_name = File.basename(event['input_file'])
+      input_file_path = "/tmp/#{inptu_file_name}"
 
-      pdf_file_path = Office.perform(file_path: template_file.path, soffice_path: INFLATED_SOFFICE_PATH)
-      pdf_file_name = File.basename(pdf_file_path, ".*")
+      S3.get_object(bucket: ENV['S3_BUCKET'],
+                    key: event['input_file'],
+                    target: input_file_path)
 
-      s3_object = S3.bucket(ENV['S3_BUCKET']).object(pdf_file_name).upload_file(pdf_file_path)
+      output_file_path =
+        Office.perform(file_path: input_file_path, soffice_path: INFLATED_SOFFICE_PATH)
 
-
-
-
-
-        # ensure
-        #   [document_file, pdf_file_path].each do |file_path|
-        #     file_path.close! unless file_path.nil? || file_path.closed?
-        #   end
-        # end
+      File.open(output_file_path, 'rb') do |file|
+        S3.put_object(bucket: ENV['S3_BUCKET'],
+                      key: "#{event['id']}/generate-pdf/#{File.basename(inptu_file_name)}.pdf",
+                      body: file)
+      end
+    ensure
+      [input_file_path, output_file_path].each do |file_path|
+        File.delete(file_path) if File.exist?(file_path)
       end
     end
   end

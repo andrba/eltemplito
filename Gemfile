@@ -20,6 +20,7 @@ group :shared, optional: true do
   gem 'aws-sdk-s3'
   gem 'aws-sdk-dynamodb'
   gem 'aws-sdk-lambda'
+  gem 'aws-ssm-env'
 end
 
 group :test, :development do

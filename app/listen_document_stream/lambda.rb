@@ -1,6 +1,7 @@
 require 'aws-sdk-lambda'
 require 'aws-sdk-sns'
 require 'aws-sdk-s3'
+require 'aws-ssm-env'
 require 'partial_failure_handler'
 
 module ListenDocumentStream
@@ -8,6 +9,8 @@ module ListenDocumentStream
     Lambda = Aws::Lambda::Client.new
     S3     = Aws::S3::Resource.new
     SNS    = Aws::SNS::Resource.new
+
+    AwsSsmEnv.load!(begins_with: "#{ENV['SSM_PATH']}/functions/")
 
     module_function def handler(event:, context:)
       PartialFailureHandler.new(event).map do |event_name, params|

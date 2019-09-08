@@ -1,5 +1,5 @@
-require 'down'
 require 'aws-sdk-s3'
+require 'down'
 require 'document_repository'
 require 'json_response'
 require 'pipeline'

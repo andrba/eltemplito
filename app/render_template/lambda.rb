@@ -3,11 +3,14 @@ require 'sablon'
 require 'json'
 require 'aws-sdk-s3'
 require 'aws-sdk-lambda'
+require 'aws-ssm-env'
 
 module RenderTemplate
   module Lambda
     S3      = Aws::S3::Client.new
-    Lambda  = Aws::Lambda::Resource.new
+    Lambda  = Aws::Lambda::Client.new
+
+    AwsSsmEnv.load!(begins_with: "#{ENV['SSM_PATH']}/functions/")
 
     module_function def handler(event:, context:)
       file_name = File.basename(event['input_file'])
@@ -19,8 +22,8 @@ module RenderTemplate
 
       rendered_document = Sablon.template(file_path).render_to_string(event['merge_fields'])
 
-      s3_object = S3.put_object(bucket: [ENV['S3_BUCKET'],
-                                key: "#{event['id']}/rendered/#{file_name}",
+      s3_object = S3.put_object(bucket: ENV['S3_BUCKET'],
+                                key: "#{event['id']}/render-template/#{file_name}",
                                 body: rendered_document)
 
       Lambda.invoke_async(

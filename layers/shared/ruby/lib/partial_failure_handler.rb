@@ -42,10 +42,5 @@ class PartialFailureHandler
       end
       memo[key] = parsed_value
     end
-
-    # puts record
-    # record.each_with_object({}) do |(key, value), memo|
-    #   memo[k] = value.first.last
-    # end
   end
 end

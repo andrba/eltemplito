@@ -8,7 +8,6 @@ module Dispatchr
 
     module_function def handler(event:, context:)
       message = JSON.parse(event['Records'].first['Sns']['Message'])
-
       if message['pipeline'].empty?
         DocumentRepository.update(message['id'], status: 'success', document: message['input_file'])
       else

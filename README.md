@@ -16,7 +16,7 @@ Template rendering is based on [Sablon](https://github.com/senny/sablon)
 
 Given an office document, e.g. `docx` or `xlsx` and `output_format=pdf`, it converts the document into a `pdf` format and saves the `pdf` file.
 
-PDF generation is based on [LibreOffice](https://github.com/LibreOffice/core)
+PDF generation is based on [LibreOffice](https://github.com/LibreOffice/core) and [libreoffice-lambda-layer](https://github.com/shelfio/libreoffice-lambda-layer)
 
 ## API documentation
 

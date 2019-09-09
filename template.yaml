@@ -139,7 +139,6 @@ Resources:
     Properties:
       CodeUri: 'app/generate_pdf/'
       Handler: lambda.GeneratePdf::Lambda.handler
-      Timeout: 60
       MemorySize: 1024
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1

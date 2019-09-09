@@ -22,7 +22,7 @@ Globals:
       Variables:
         S3_BUCKET: !Ref S3Bucket
         DOCUMENTS_TABLE: !Ref DocumentsDBTable
-        SSM_PATH: !Sub "/${Product}/${Environment}"
+        STATE_CHANGED_TOPIC: !Ref StateChangedSNSTopic
     Layers:
       - !Ref SharedLayer
 
@@ -49,8 +49,6 @@ Resources:
             BucketName: !Ref S3Bucket
         - DynamoDBCrudPolicy:
             TableName: !Ref DocumentsDBTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub "/${Product}/${Environment}/*"
       Events:
         PostDocumentApi:
           Type: Api
@@ -75,7 +73,7 @@ Resources:
       Handler: lambda.ListenDocumentStream::Lambda.handler
       Environment:
         Variables:
-          DOCUMENTS_TOPIC: !Ref DocumentsSNSTopic
+          DOCUMENT_CREATED_TOPIC: !Ref DocumentCreatedSNSTopic
       Events:
         Stream:
           Type: DynamoDB
@@ -84,31 +82,28 @@ Resources:
             BatchSize: 10
             # MaximumBatchingWindowInSeconds: 10
             StartingPosition: LATEST
-      Layers:
-        - !Ref ListenDocumentStreamGemsLayer
       Policies:
-        - DispatchrFunctionInvokePolicy
         - DynamoDBReadPolicy:
             TableName: !Ref DocumentsDBTable
         - SNSPublishMessagePolicy:
-            TopicName: !Ref DocumentsSNSTopic
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub "/${Product}/${Environment}/*"
-
-  ListenDocumentStreamGemsLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: listen-document-stream-gems
-      ContentUri: layers/listen_document_stream/
-      CompatibleRuntimes:
-        - ruby2.5
-      RetentionPolicy: Delete
+            TopicName: !Ref DocumentCreatedSNSTopic
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref StateChangedSNSTopic
 
   DispatchrFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/dispatchr/'
       Handler: lambda.Dispatchr::Lambda.handler
+      Environment:
+        Variables:
+          RENDER_TEMPLATE_FUNCTION: !Ref RenderTemplateFunction
+          GENERATE_PDF_FUNCTION: !Ref GeneratePdfFunction
+      Events:
+        StateChangedTopic:
+          Type: SNS
+          Properties:
+             Topic: !Ref StateChangedSNSTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DocumentsDBTable
@@ -125,9 +120,10 @@ Resources:
       Layers:
         - !Ref RenderTemplateRubyGemsLayer
       Policies:
-        - DispatchrFunctionInvokePolicy
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref StateChangedSNSTopic
 
   RenderTemplateRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -143,14 +139,16 @@ Resources:
     Properties:
       CodeUri: 'app/generate_pdf/'
       Handler: lambda.GeneratePdf::Lambda.handler
-      MemorySize: 512
+      Timeout: 60
+      MemorySize: 1024
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
         - !Ref GeneratePdfRubyGemsLayer
       Policies:
-        - DispatchrFunctionInvokePolicy
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref StateChangedSNSTopic
 
   GeneratePdfRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -202,65 +200,32 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
-  DocumentsSNSTopic:
+  DocumentCreatedSNSTopic:
     Type: AWS::SNS::Topic
 
-  DispatchrFunctionInvokePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: "invoke-dispatchr-function"
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          -
-            Effect: "Allow"
-            Action: "lambda:InvokeFunction"
-            Resource: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${DispatchrFunction}*"
-
-  S3BucketSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "S3 Bucket"
-      Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
-      Type: String
-      Value: !Ref S3Bucket
-
-  DocumentsSNSTopicSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Documents SNS Topic"
-      Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
-      Type: String
-      Value: !Ref DocumentsSNSTopic
-
-  DispatchrFunctionSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Dispatchr Function"
-      Name: !Sub "/${Product}/${Environment}/functions/DISPATCHR_FUNCTION"
-      Type: String
-      Value: !Ref DispatchrFunction
-
-  RenderTemplateFunctionSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Render Template Function"
-      Name: !Sub "/${Product}/${Environment}/functions/RENDER_TEMPLATE_FUNCTION"
-      Type: String
-      Value: !Ref RenderTemplateFunction
-
-  GeneratePdfFunctionSSMParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description : "Generate PDF Function"
-      Name: !Sub "/${Product}/${Environment}/functions/GENERATE_PDF_FUNCTION"
-      Type: String
-      Value: !Ref GeneratePdfFunction
+  StateChangedSNSTopic:
+    Type: AWS::SNS::Topic
 
   # DeadLetterQueue:
   #   Type: AWS::SQS::Queue
   #   Properties:
   #     MessageRetentionPeriod: 1209600
+
+  # S3BucketSSMParameter:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #     Description : "S3 Bucket"
+  #     Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
+  #     Type: String
+  #     Value: !Ref S3Bucket
+
+  # DocumentsSNSTopicSSMParameter:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #     Description : "Documents SNS Topic"
+  #     Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
+  #     Type: String
+  #     Value: !Ref DocumentsSNSTopic
 
   # DeadLetterQueueDepthAlarm:
   #   Type: AWS::CloudWatch::Alarm

@@ -1,25 +1,17 @@
-require 'aws-sdk-lambda'
 require 'aws-sdk-sns'
 require 'aws-sdk-s3'
-require 'aws-ssm-env'
 require 'partial_failure_handler'
 
 module ListenDocumentStream
   module Lambda
-    Lambda = Aws::Lambda::Client.new
     S3     = Aws::S3::Resource.new
     SNS    = Aws::SNS::Resource.new
-
-    AwsSsmEnv.load!(begins_with: "#{ENV['SSM_PATH']}/functions/")
 
     module_function def handler(event:, context:)
       PartialFailureHandler.new(event).map do |event_name, params|
         case event_name
         when 'INSERT'
-          Lambda.invoke_async(
-            function_name: ENV['DISPATCHR_FUNCTION'],
-            invoke_args: JSON.generate(params)
-          )
+          SNS.topic(ENV['STATE_CHANGED_TOPIC']).publish(message: JSON.generate(params))
         when 'MODIFY'
           response = params.slice('id', 'status')
 
@@ -28,10 +20,7 @@ module ListenDocumentStream
             response['document_url'] = document_url
           end
 
-          SNS.topic(ENV['DOCUMENTS_TOPIC']).publish(
-            message: JSON.generate(response),
-            message_attributes: {}
-          )
+          SNS.topic(ENV['DOCUMENT_CREATED_TOPIC']).publish(message: JSON.generate(response))
         end
       end
     end

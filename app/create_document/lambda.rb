@@ -24,17 +24,19 @@ module CreateDocument
 
       pipeline = Pipeline.build_from_request(request)
 
-      DocumentRepository.create(
+      item = {
         id:           request['request_id'],
         input_file:   s3_object_key,
         merge_fields: request['merge_fields'],
         pipeline:     pipeline,
         status:       'pending'
-      )
+      }
 
-      json_response(202, id: request['request_id'])
+      DocumentRepository.create(item)
+
+      json_response(202, item.slice(:id, :status))
     rescue Down::ClientError => e
-      json_response(422, id: request['request_id'], message: e.message)
+      json_response(422, id: request['request_id'], status: 'error', message: e.message)
     end
   end
 end

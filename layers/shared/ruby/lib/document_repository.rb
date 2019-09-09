@@ -12,7 +12,8 @@ module DocumentRepository
   def update(id, attributes)
     DB.table(ENV['DOCUMENTS_TABLE']).update_item(
       key: { id: id },
-      update_expression: "set #{attributes.map { |key, value| "#{key} = :#{key}" }.join(",") }",
+      update_expression: "set #{ attributes.map { |key, value| "##{key} = :#{key}" }.join(",") }",
+      expression_attribute_names:  attributes.keys.map { |key| "##{key}" }.zip(attributes.keys).to_h,
       expression_attribute_values: attributes.transform_keys { |key| ":#{key}" }
     )
   end

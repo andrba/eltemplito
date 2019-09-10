@@ -86,9 +86,9 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref DocumentsDBTable
         - SNSPublishMessagePolicy:
-            TopicName: !Ref DocumentCreatedSNSTopic
+            TopicName: !GetAtt DocumentCreatedSNSTopic.TopicName
         - SNSPublishMessagePolicy:
-            TopicName: !Ref StateChangedSNSTopic
+            TopicName: !GetAtt StateChangedSNSTopic.TopicName
 
   DispatchrFunction:
     Type: AWS::Serverless::Function
@@ -123,7 +123,7 @@ Resources:
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
         - SNSPublishMessagePolicy:
-            TopicName: !Ref StateChangedSNSTopic
+            TopicName: !GetAtt StateChangedSNSTopic.TopicName
 
   RenderTemplateRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -139,7 +139,8 @@ Resources:
     Properties:
       CodeUri: 'app/generate_pdf/'
       Handler: lambda.GeneratePdf::Lambda.handler
-      MemorySize: 1024
+      MemorySize: 1536
+      Timeout: 15
       Layers:
         - arn:aws:lambda:ap-southeast-2:764866452798:layer:libreoffice:1
         - !Ref GeneratePdfRubyGemsLayer
@@ -147,7 +148,7 @@ Resources:
         - S3CrudPolicy:
             BucketName: !Ref S3Bucket
         - SNSPublishMessagePolicy:
-            TopicName: !Ref StateChangedSNSTopic
+            TopicName: !GetAtt StateChangedSNSTopic.TopicName
 
   GeneratePdfRubyGemsLayer:
     Type: AWS::Serverless::LayerVersion
@@ -205,38 +206,22 @@ Resources:
   StateChangedSNSTopic:
     Type: AWS::SNS::Topic
 
-  # DeadLetterQueue:
-  #   Type: AWS::SQS::Queue
-  #   Properties:
-  #     MessageRetentionPeriod: 1209600
+  DocumentCreatedSNSTopicSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "DocumentCreated SNS Topic"
+      Name: !Sub "/${Product}/${Environment}/DOCUMENT_CREATED_SNS_TOPIC"
+      Type: String
+      Value: !Ref DocumentCreatedSNSTopic
 
-  # S3BucketSSMParameter:
-  #   Type: AWS::SSM::Parameter
-  #   Properties:
-  #     Description : "S3 Bucket"
-  #     Name: !Sub "/${Product}/${Environment}/S3_BUCKET"
-  #     Type: String
-  #     Value: !Ref S3Bucket
-
-  # DocumentsSNSTopicSSMParameter:
-  #   Type: AWS::SSM::Parameter
-  #   Properties:
-  #     Description : "Documents SNS Topic"
-  #     Name: !Sub "/${Product}/${Environment}/DOCUMENTS_SNS_TOPIC"
-  #     Type: String
-  #     Value: !Ref DocumentsSNSTopic
-
-  # DeadLetterQueueDepthAlarm:
-  #   Type: AWS::CloudWatch::Alarm
-  #   Properties:
-  #     AlarmDescription: "Alarm if DLQs contain messages"
-  #     Namespace: "AWS/SQS"
-  #     MetricName: ApproximateNumberOfMessagesVisible
-  #     Dimensions:
-  #       - Name: LetterQueueName
-  #         Value : !GetAtt DeadLetterQueue.QueueName
-  #     Statistic: Sum
-  #     Period: 300
-  #     EvaluationPeriods: 1
-  #     Threshold: 0
-  #     ComparisonOperator: GreaterThanThreshold
+  ApiGatewayEndpointSSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description : "Api Endpoint"
+      Name: !Sub "/${Product}/${Environment}/API_ENDPOINT"
+      Type: String
+      Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+Outputs:
+  ApiEndpoint:
+    Description: "El Templito API endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"

@@ -74,5 +74,11 @@ task :deploy, [:product, :environment, :bucket] do |_, args|
       Product=#{args.product} \
       Environment=#{args.environment} \
       SwaggerS3Path=#{swagger_s3_path} \
-    --stack-name #{args.product}")
+    --stack-name #{args.product} \
+    --no-fail-on-empty-changeset")
+
+  system!("aws cloudformation describe-stacks \
+    --stack-name #{args.product} \
+    --query \"Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue\" \
+    --output text")
 end

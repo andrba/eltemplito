@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "required": [
+    "input_file",
+    "pipeline"
+  ],
+  "properties": {
+    "input_file": {
+      "type": "string"
+    },
+    "pipeline": {
+      "type": "array",
+      "maxItems": 0
+    }
+  }
+}

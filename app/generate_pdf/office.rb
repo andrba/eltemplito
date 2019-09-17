@@ -31,6 +31,8 @@ module GeneratePdf
     end
 
     def perform(file_path:)
+      inflate_soffice
+
       args = DEFAULT_SOFFICE_ARGS + %w[--convert-to pdf --outdir /tmp] + [file_path]
 
       stdout, stderr, status = Open3.capture3(INFLATED_SOFFICE_PATH, *args, chdir: '/tmp')

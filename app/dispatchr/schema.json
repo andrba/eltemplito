@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "required": [
+    "input_file",
+    "pipeline"
+  ],
+  "properties": {
+    "input_file": {
+      "type": "string"
+    },
+    "merge_fields": {
+      "type": "object"
+    },
+    "pipeline": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["GENERATE_PDF_FUNCTION", "RENDER_TEMPLATE_FUNCTION"]
+      }
+    }
+  }
+}

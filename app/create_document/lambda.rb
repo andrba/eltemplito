@@ -1,42 +1,44 @@
+require 'event_stack'
+require 'event_handler'
 require 'aws-sdk-s3'
 require 'down'
 require 'document_repository'
-require 'json_response'
 require 'pipeline'
 
 module CreateDocument
-  module Lambda
-    extend JsonResponse
+  class Handler < EventHandler
+    def handle(s3_client: Aws::S3::Client.new, document_repository: DocumentRepository)
+      input_file = Down.download(params['file_url'], max_size: ENV.fetch('MAX_TEMPLATE_SIZE', 5 * 1024 * 1024))
 
-    S3 = Aws::S3::Resource.new
-    DB = Aws::DynamoDB::Resource.new
+      s3_object_key = "#{params['requestId']}/original/#{input_file.original_filename}"
 
-    module_function def handler(event:, context:)
-      request = JSON.parse(event['body'].to_s)
+      File.open(input_file, 'rb') do |file|
+        s3_client.put_object(bucket: ENV['S3_BUCKET'], key: s3_object_key, body: file)
+      end
 
-      input_file = Down.download(request['file_url'], max_size: ENV.fetch('MAX_TEMPLATE_SIZE', 5 * 1024 * 1024))
-
-      s3_object_key = "#{request['request_id']}/original/#{input_file.original_filename}"
-
-      s3_object = S3.bucket(ENV['S3_BUCKET']).
-                    object(s3_object_key).
-                    upload_file(input_file.path)
-
-      pipeline = Pipeline.build_from_request(request)
+      pipeline = Pipeline.build_from_request(params)
 
       item = {
-        id:           request['request_id'],
+        id:           params['requestId'],
         input_file:   s3_object_key,
-        merge_fields: request['merge_fields'],
+        merge_fields: params['merge_fields'],
         pipeline:     pipeline,
         status:       'pending'
       }
 
-      DocumentRepository.create(item)
+      document_repository.create(item)
 
-      json_response(202, item.slice(:id, :status))
-    rescue Down::ClientError => e
-      json_response(422, id: request['request_id'], status: 'error', message: e.message)
+      [202, item.slice(:id, :status)]
+    rescue Down::Error => e
+      [422, id: context['requestId'], status: 'error', message: e.message]
+    ensure
+      input_file.close unless input_file.nil? || input_file.closed?
     end
+  end
+
+  EVENT_STACK = EventStack.build(handler: Handler)
+
+  module_function def handler(**args)
+    EVENT_STACK.call(**args)
   end
 end

@@ -8,16 +8,16 @@ class JsonResponse
   def call(env)
     response = @app.call(env)
 
-    if env.dig('event', 'eventSource') == 'aws:apigateway'
-      {
-        'statusCode' => response[:status_code],
-        'headers' => {
-          'Content-Type' => 'application/json'
-        },
-        'body' => JSON.generate(response[:body])
-      }
-    else
-      response
-    end
+    return response unless env.dig('event', 'eventSource') == 'aws:apigateway'
+
+    code, body = *response
+
+    {
+      'statusCode' => code,
+      'headers' => {
+        'Content-Type' => 'application/json'
+      },
+      'body' => JSON.generate(body)
+    }
   end
 end

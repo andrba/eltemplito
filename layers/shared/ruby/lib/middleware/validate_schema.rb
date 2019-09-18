@@ -7,7 +7,7 @@ class ValidateSchema
   end
 
   def call(env)
-    JSON::Validator.validate!(@schema, env['event'])
+    JSON::Validator.validate!(@schema, env['app.request']) unless @schema.nil?
     @app.call(env)
   end
 end

@@ -1,28 +1,37 @@
+require 'event_stack'
+require 'event_handler'
 require 'aws-sdk-sns'
 require 'aws-sdk-s3'
 require 'partial_failure_handler'
 
 module ListenDocumentStream
-  module Lambda
-    S3     = Aws::S3::Resource.new
-    SNS    = Aws::SNS::Resource.new
+  class Handler < EventHandler
+    def handle(sns_client: Aws::SNS::Client.new, s3_signer: Aws::S3::Presigner.new)
+      PartialFailureHandler.new(params).map do |event_name, record|
+        next unless event_name.in?(%w[INSERT MODIFY])
 
-    module_function def handler(event:, context:)
-      PartialFailureHandler.new(event).map do |event_name, params|
-        case event_name
-        when 'INSERT'
-          SNS.topic(ENV['STATE_CHANGED_TOPIC']).publish(message: JSON.generate(params))
-        when 'MODIFY'
-          response = params.slice('id', 'status')
+        if record['status'] == 'pending'
+          sns_client.publish_topic(topic_name: ENV['STATE_CHANGED_TOPIC'],
+                                   message: JSON.generate(record))
+        else
+          response = record.slice('id', 'status')
 
-          if params['status'] == 'success'
-            document_url = S3.bucket(ENV['S3_BUCKET']).object(params['document']).presigned_url(:get)
-            response['document_url'] = document_url
+          if record['status'] == 'success'
+            response['document_url'] = s3_signer.presigned_url(:get_object,
+                                                               bucket: ENV['S3_BUCKET'],
+                                                               key: record['document'])
           end
 
-          SNS.topic(ENV['DOCUMENT_CREATED_TOPIC']).publish(message: JSON.generate(response))
+          sns_client.publish_topic(topic_name: ENV['DOCUMENT_CREATED_TOPIC'],
+                                   message: JSON.generate(response))
         end
       end
     end
+  end
+
+  EVENT_STACK = EventStack.build(handler: Handler, schema: File.join(__dir__, 'schema.json'))
+
+  module_function def handler(**args)
+    EVENT_STACK.call(**args)
   end
 end

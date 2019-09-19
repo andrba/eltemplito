@@ -42,7 +42,7 @@ rake build_layers[shared]
 rake deploy[stack-name,environment,s3_bucket_name]
 ```
 
-## Development and Testing
+## Development
 
 Check out [events](https://github.com/andrba/eltemplito/tree/master/spec/fixtures/events) that are passed to lambda functions.
 
@@ -66,4 +66,11 @@ sam local invoke --event spec/fixtures/events/render_template.json --env-vars .e
 
 # GeneratePdfFunction
 sam local invoke --event spec/fixtures/events/generate_pdf.json --env-vars .env.json GeneratePdfFunction
+```
+
+## Testing
+
+```
+bundle install --with create_document listen_document_stream dispatchr render_template generate_pdf test
+bundle exec rspec
 ```

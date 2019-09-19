@@ -12,6 +12,10 @@ class EventHandler
   private
 
   def params
-    env['params']
+    env.fetch('params', {})
+  end
+
+  def context
+    env.fetch('context', {})
   end
 end

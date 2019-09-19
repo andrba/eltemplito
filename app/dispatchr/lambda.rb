@@ -7,11 +7,11 @@ module Dispatchr
   class Handler < EventHandler
     def handle(lambda_client: Aws::Lambda::Client.new, document_repository: DocumentRepository)
       if params['pipeline'].empty?
-        document_repository.update(params['id'], status: 'success', document: params['input_file'])
+        document_repository.update(params['id'], status: :success, document: params['input_file'])
       else
         invoke_args = params.merge('pipeline' => params['pipeline'].drop(1))
         lambda_client.invoke_async(function_name: ENV[params['pipeline'].first],
-                                   invoke_args: JSON.generate(invoke_args)
+                                   invoke_args: JSON.generate(invoke_args))
       end
     end
   end

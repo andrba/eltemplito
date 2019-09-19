@@ -1,16 +1,13 @@
 require 'spec_helper'
 require 'support/shared_examples_for_contract_testing'
-require 'render_template/lambda'
+require 'generate_pdf/lambda'
 
-RSpec.describe RenderTemplate::Handler do
+RSpec.describe GeneratePdf::Handler do
   let(:env) do
     {
       'params' => {
         'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
         'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
-        'merge_fields' => {
-          'content' => 'The best things in life are not things'
-        },
         'pipeline' => [],
       }
     }
@@ -31,18 +28,13 @@ RSpec.describe RenderTemplate::Handler do
     end
   end
 
-  let(:sablon_template) { instance_double(Sablon::Template, render_to_string: 'rendered document') }
-
   describe '#handle' do
     subject { handler.handle(s3_client: s3_client, sns_client: sns_client) }
 
     let(:message) do
       {
         id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-        input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/render-template/template.docx',
-        merge_fields: {
-          'content' => 'The best things in life are not things',
-        },
+        input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/generate-pdf/template.pdf',
         pipeline: [],
       }
     end
@@ -51,7 +43,9 @@ RSpec.describe RenderTemplate::Handler do
       allow(ENV).to receive(:[]).and_call_original
       allow(ENV).to receive(:[]).with('S3_BUCKET') { 'eltemplito-test' }
       allow(ENV).to receive(:[]).with('STATE_CHANGED_TOPIC') { 'state-changed-topic' }
-      allow(Sablon).to receive(:template) { sablon_template }
+
+      FileUtils.cp(File.join('spec', 'fixtures', 'document.pdf'), "/tmp/document.pdf")
+      allow(GeneratePdf::Office).to receive(:perform) { "/tmp/document.pdf" }
     end
 
     it_behaves_like 'it respects contract with consumer lambda function', 'dispatchr'

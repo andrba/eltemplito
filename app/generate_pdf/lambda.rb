@@ -2,7 +2,7 @@ require 'event_stack'
 require 'event_handler'
 require 'aws-sdk-s3'
 require 'aws-sdk-sns'
-require 'office'
+require_relative 'office'
 
 module GeneratePdf
   class Handler < EventHandler
@@ -21,8 +21,8 @@ module GeneratePdf
         s3_client.put_object(bucket: ENV['S3_BUCKET'], key: s3_object_key, body: file)
       end
 
-      sns_client.publish_topic(topic_name: ENV['STATE_CHANGED_TOPIC'],
-                               message: JSON.generate(params.merge('input_file' => s3_object_key)))
+      sns_client.publish(topic_arn: ENV['STATE_CHANGED_TOPIC'],
+                         message: JSON.generate(params.merge('input_file' => s3_object_key)))
     ensure
       [input_file_path, output_file_path].compact.each do |file_path|
         File.delete(file_path) if File.exist?(file_path)

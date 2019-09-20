@@ -41,7 +41,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/create_document/'
-      Handler: lambda.CreateDocument::Lambda.handler
+      Handler: lambda.CreateDocument.handler
       Layers:
         - !Ref CreateDocumentGemsLayer
       Policies:
@@ -70,7 +70,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/listen_document_stream/'
-      Handler: lambda.ListenDocumentStream::Lambda.handler
+      Handler: lambda.ListenDocumentStream.handler
       Environment:
         Variables:
           DOCUMENT_CREATED_TOPIC: !Ref DocumentCreatedSNSTopic
@@ -94,7 +94,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/dispatchr/'
-      Handler: lambda.Dispatchr::Lambda.handler
+      Handler: lambda.Dispatchr.handler
       Environment:
         Variables:
           RENDER_TEMPLATE_FUNCTION: !Ref RenderTemplateFunction
@@ -116,7 +116,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/render_template/'
-      Handler: lambda.RenderTemplate::Lambda.handler
+      Handler: lambda.RenderTemplate.handler
       Layers:
         - !Ref RenderTemplateRubyGemsLayer
       Policies:
@@ -138,7 +138,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 'app/generate_pdf/'
-      Handler: lambda.GeneratePdf::Lambda.handler
+      Handler: lambda.GeneratePdf.handler
       MemorySize: 1536
       Timeout: 15
       Layers:

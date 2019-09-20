@@ -1,11 +1,15 @@
 {
   "type": "object",
   "required": [
+    "id",
     "input_file",
     "merge_fields",
     "pipeline"
   ],
   "properties": {
+    "id": {
+      "type": "string"
+    },
     "input_file": {
       "type": "string"
     },

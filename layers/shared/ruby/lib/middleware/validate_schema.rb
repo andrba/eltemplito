@@ -1,13 +1,18 @@
-require 'json-schema'
+require 'json_schemer'
 
 class ValidateSchema
+  class SchemaError < StandardError; end
+
   def initialize(app, schema)
     @app = app
-    @schema = schema
+    @schemer = schema && JSONSchemer.schema(schema)
   end
 
   def call(env)
-    JSON::Validator.validate!(@schema, env['app.request']) unless @schema.nil?
+    if @schemer && !@schemer.valid?(env['params'])
+      raise SchemaError, schemer.validate(env['params'])
+    end
+
     @app.call(env)
   end
 end

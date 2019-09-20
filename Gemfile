@@ -20,7 +20,7 @@ group :shared, optional: true do
   gem 'aws-sdk-s3'
   gem 'aws-sdk-dynamodb'
   gem 'aws-sdk-sns'
-  gem 'json-schema'
+  gem 'json_schemer'
   gem 'ibsciss-middleware'
 end
 

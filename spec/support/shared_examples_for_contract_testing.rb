@@ -1,7 +1,12 @@
+require 'pathname'
+
 RSpec.shared_examples "it respects contract with consumer lambda function" do |function_name|
-  let(:schema) { JSON.parse(File.read(File.join('app', function_name, 'schema.json'))) }
+  let(:schema) { Pathname.new(File.join('app', function_name, 'schema.json')) }
 
   it 'respects the contract' do
-    expect(JSON::Validator.validate(schema, message)).to be_truthy
+    # Convert all symbol keys and values into strings
+    stringified_message = JSON.parse(message.to_json)
+
+    expect(JSONSchemer.schema(schema).valid?(stringified_message)).to be_truthy
   end
 end

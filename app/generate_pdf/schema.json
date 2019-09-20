@@ -1,10 +1,14 @@
 {
   "type": "object",
   "required": [
+    "id",
     "input_file",
     "pipeline"
   ],
   "properties": {
+    "id": {
+      "type": "string"
+    },
     "input_file": {
       "type": "string"
     },

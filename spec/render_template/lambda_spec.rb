@@ -26,8 +26,8 @@ RSpec.describe RenderTemplate::Handler do
   end
 
   let(:sns_client) do
-    Aws::SNS::Client.new(stub_responses: true).tap do |s3|
-      s3.stub_responses(:publish, {})
+    Aws::SNS::Client.new(stub_responses: true).tap do |sns|
+      sns.stub_responses(:publish, {})
     end
   end
 

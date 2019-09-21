@@ -8,11 +8,11 @@ module ListenDocumentStream
   class Handler < EventHandler
     def handle(sns_client: Aws::SNS::Client.new, s3_signer: Aws::S3::Presigner.new)
       PartialFailureHandler.new(params).map do |event_name, record|
-        next unless event_name.in?(%w[INSERT MODIFY])
+        next unless %w[INSERT MODIFY].include?(event_name)
 
         if record['status'] == 'pending'
-          sns_client.publish_topic(topic_name: ENV['STATE_CHANGED_TOPIC'],
-                                   message: JSON.generate(record))
+          sns_client.publish(topic_arn: ENV['STATE_CHANGED_TOPIC'],
+                             message: JSON.generate(record))
         else
           response = record.slice('id', 'status')
 
@@ -22,8 +22,8 @@ module ListenDocumentStream
                                                                key: record['document'])
           end
 
-          sns_client.publish_topic(topic_name: ENV['DOCUMENT_CREATED_TOPIC'],
-                                   message: JSON.generate(response))
+          sns_client.publish(topic_arn: ENV['DOCUMENT_CREATED_TOPIC'],
+                             message: JSON.generate(response))
         end
       end
     end

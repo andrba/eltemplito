@@ -4,8 +4,8 @@ module Pipeline
 
   module_function def build_from_request(request)
     [
-      *(RENDER_TEMPLATE if request['merge_fields'].any?),
-      *(GENERATE_PDF    if request['output_format'] == 'pdf'),
+      *(RENDER_TEMPLATE if request[:merge_fields].any?),
+      *(GENERATE_PDF    if request[:output_format] == 'pdf'),
     ]
   end
 end

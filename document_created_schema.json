@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "required": ["id", "status"],
+  "properties": {
+    "document_url": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure"]
+    }
+  },
+  "if": {
+    "properties": { "status": { "const": "success" } }
+  },
+  "then": {
+    "required": ["document_url"]
+  }
+}

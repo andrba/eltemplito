@@ -4,18 +4,16 @@ require 'create_document/lambda'
 
 RSpec.describe CreateDocument::Handler do
   let(:env) do
-    {
-      'params' => {
-        'file_url' => 'https://path.to/template.docx',
-        'output_format' => 'pdf',
-        'merge_fields' => {
-          'content' => 'The best things in life are not things'
-        }
-      },
-      'context' => {
-        'requestId' => '77880a9c-1822-4205-abc2-4bf39ecc9f83'
+    HashWithIndifferentAccess.new(
+      params: {
+        file_url: 'https://path.to/template.docx',
+        output_format: 'pdf',
+        merge_fields: {
+          content: 'The best things in life are not things'
+        },
+        'x-corellation-id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83'
       }
-    }
+    )
   end
 
   let(:handler) { described_class.new(env) }
@@ -38,10 +36,10 @@ RSpec.describe CreateDocument::Handler do
           id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
           input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
           merge_fields: {
-            'content' => 'The best things in life are not things',
+            content: 'The best things in life are not things',
           },
           pipeline: [Pipeline::RENDER_TEMPLATE, Pipeline::GENERATE_PDF],
-          status: :pending
+          status: 'pending'
         }
       end
 
@@ -58,7 +56,7 @@ RSpec.describe CreateDocument::Handler do
 
       it 'returns 202' do
         expect(document_repository).to receive(:create).with(message)
-        expect(subject).to eq([202, { id: '77880a9c-1822-4205-abc2-4bf39ecc9f83', status: :pending }])
+        expect(subject).to eq([202, { id: '77880a9c-1822-4205-abc2-4bf39ecc9f83', status: 'pending' }])
       end
     end
 

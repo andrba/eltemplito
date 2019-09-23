@@ -4,13 +4,13 @@ require 'generate_pdf/lambda'
 
 RSpec.describe GeneratePdf::Handler do
   let(:env) do
-    {
-      'params' => {
-        'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-        'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
-        'pipeline' => [],
+    HashWithIndifferentAccess.new(
+      params: {
+        id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+        input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
+        pipeline: [],
       }
-    }
+    )
   end
 
   let(:handler) { described_class.new(env) }

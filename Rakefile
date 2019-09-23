@@ -9,7 +9,7 @@ def system!(*args)
 end
 
 task :build do
-  system!("sam build")
+  system!("BUNDLE_IGNORE_CONFIG=1 sam build")
 end
 
 task :build_layers, [:layer] do |_, args|

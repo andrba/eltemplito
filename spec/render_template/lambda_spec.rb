@@ -4,16 +4,16 @@ require 'render_template/lambda'
 
 RSpec.describe RenderTemplate::Handler do
   let(:env) do
-    {
-      'params' => {
-        'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-        'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
-        'merge_fields' => {
-          'content' => 'The best things in life are not things'
+    HashWithIndifferentAccess.new(
+      params: {
+        id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+        input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
+        merge_fields: {
+          content: 'The best things in life are not things'
         },
-        'pipeline' => [],
+        pipeline: [],
       }
-    }
+    )
   end
 
   let(:handler) { described_class.new(env) }
@@ -41,7 +41,7 @@ RSpec.describe RenderTemplate::Handler do
         id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
         input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/render-template/template.docx',
         merge_fields: {
-          'content' => 'The best things in life are not things',
+          content: 'The best things in life are not things',
         },
         pipeline: [],
       }

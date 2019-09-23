@@ -21,35 +21,29 @@ RSpec.describe ListenDocumentStream::Handler do
     context 'on INSERT or UPDATE event' do
       context 'when record status is pending' do
         let(:env) do
-          {
-            'params' => [
-              {
-                'eventName' => 'INSERT',
-                'dynamodb' => {
-                  'NewImage' => {
-                    'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-                    'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
-                    'merge_fields' => {
-                      'content' => 'The best things in life are not things'
-                    },
-                    'pipeline' => [],
-                    'status' => 'pending'
-                  }
-                }
-              }
-            ]
-          }
+          HashWithIndifferentAccess.new(
+            params: {
+              _eventName: 'INSERT',
+              id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+              input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
+              merge_fields: {
+                content: 'The best things in life are not things'
+              },
+              pipeline: [],
+              status: 'pending'
+            }
+          )
         end
 
         let(:message) do
           {
             id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+            status: :pending,
             input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
             merge_fields: {
-              'content' => 'The best things in life are not things',
+              content: 'The best things in life are not things',
             },
             pipeline: [],
-            status: :pending
           }
         end
 
@@ -69,25 +63,19 @@ RSpec.describe ListenDocumentStream::Handler do
 
       context 'when record status is success' do
         let(:env) do
-          {
-            'params' => [
-              {
-                'eventName' => 'INSERT',
-                'dynamodb' => {
-                  'NewImage' => {
-                    'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-                    'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
-                    'merge_fields' => {
-                      'content' => 'The best things in life are not things'
-                    },
-                    'document' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/generated-pdf/document.pdf',
-                    'pipeline' => [],
-                    'status' => 'success'
-                  }
-                }
-              }
-            ]
-          }
+          HashWithIndifferentAccess.new(
+            params: {
+              _eventName: 'MODIFY',
+              id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+              input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
+              merge_fields: {
+                content: 'The best things in life are not things'
+              },
+              document: '77880a9c-1822-4205-abc2-4bf39ecc9f83/generated-pdf/document.pdf',
+              pipeline: [],
+              status: 'success'
+            }
+          )
         end
 
         let(:message) do
@@ -100,45 +88,78 @@ RSpec.describe ListenDocumentStream::Handler do
 
         before do
           allow(ENV).to receive(:[]).and_call_original
-          allow(ENV).to receive(:[]).with('DOCUMENT_CREATED_TOPIC') { 'documents-topic' }
+          allow(ENV).to receive(:[]).with('DOCUMENT_CREATED_TOPIC') { 'document-created-topic' }
         end
+
+        let(:document_created_schema) { Pathname.new('document_created_schema.json') }
 
         it 'respects contract with consumer' do
+          expect(JSONSchemer.schema(document_created_schema).valid?(message.as_json)).to be_truthy
         end
 
-        it 'sends an SNS message to DOCUMENTS_TOPIC' do
+        it 'sends an SNS message to DOCUMENT_CREATED_TOPIC' do
           expect(sns_client).to receive(:publish)
-            .with(topic_arn: 'documents-topic', message: JSON.generate(message))
+            .with(topic_arn: 'document-created-topic', message: JSON.generate(message))
           subject
         end
       end
 
       context 'when record status is failure' do
-        it 'sends an SNS message to DOCUMENTS_TOPIC' do
+        let(:env) do
+          HashWithIndifferentAccess.new(
+            params: {
+              _eventName: 'MODIFY',
+              id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+              input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
+              merge_fields: {
+                content: 'The best things in life are not things'
+              },
+              pipeline: [],
+              status: 'failure'
+            }
+          )
+        end
+
+        let(:message) do
+          {
+            id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+            status: :failure,
+          }
+        end
+
+        before do
+          allow(ENV).to receive(:[]).and_call_original
+          allow(ENV).to receive(:[]).with('DOCUMENT_CREATED_TOPIC') { 'document-created-topic' }
+        end
+
+        let(:document_created_schema) { Pathname.new('document_created_schema.json') }
+
+        it 'respects contract with consumer' do
+          expect(JSONSchemer.schema(document_created_schema).valid?(message.as_json)).to be_truthy
+        end
+
+        it 'sends an SNS message to DOCUMENT_CREATED_TOPIC' do
+          expect(sns_client).to receive(:publish)
+            .with(topic_arn: 'document-created-topic', message: JSON.generate(message))
+          subject
         end
       end
     end
 
     context 'on REMOVE event' do
       let(:env) do
-        {
-          'params' => [
-            {
-              'eventName' => 'REMOVE',
-              'dynamodb' => {
-                'OldImage' => {
-                  'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-                  'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/generated-pfd/document.pdf',
-                  'merge_fields' => {
-                    'content' => 'The best things in life are not things'
-                  },
-                  'pipeline' => [],
-                  'status' => 'success'
-                }
-              }
-            }
-          ]
-        }
+        HashWithIndifferentAccess.new(
+          params: {
+            _eventName: 'REMOVE',
+            id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+            input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/generated-pfd/document.pdf',
+            merge_fields: {
+              content: 'The best things in life are not things'
+            },
+            pipeline: [],
+            status: 'success'
+          }
+        )
       end
 
       it 'does nothing' do

@@ -8,7 +8,7 @@ class JsonResponse
   def call(env)
     response = @app.call(env)
 
-    return response unless env.dig('event', 'eventSource') == 'aws:apigateway'
+    return response unless env[:source] == 'apigateway'
 
     code, body = *response
 

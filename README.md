@@ -4,7 +4,7 @@
 
 El Templito is an AWS Lambda driven templating service. It consists of `RenderTemplate` and `GeneratePdf` document processing components that can work either independently or in a combination, depending on the request parameters. See [API documentation](#api-documentation)
 
-The Document Processing Unit demonstrates how by replacing AWS Step Functions with SNS-Lambda and sacrificing the reliability when it's acceptable, it is possible to reduce the cost of state transitioning by 62 times.
+The Document Processing Unit demonstrates how by replacing AWS Step Functions with SNS-Lambda and sacrificing the reliability when it's acceptable, it is possible to reduce the cost of state transitioning by 62 times (as of Sep 2019).
 
 ### RenderTemplate
 
@@ -14,13 +14,17 @@ Template rendering is based on [Sablon](https://github.com/senny/sablon)
 
 ### GeneratePdf
 
-Given an office document, e.g. `docx` or `xlsx` and `output_format=pdf`, it converts the document into a `pdf` format and saves the `pdf` file.
+Given an office document, e.g. `docx` or `xlsx` and `output_format=pdf`, it converts the document into a `pdf` format.
 
 PDF generation is based on [LibreOffice](https://github.com/LibreOffice/core) and [libreoffice-lambda-layer](https://github.com/shelfio/libreoffice-lambda-layer)
 
 ## API documentation
 
 https://app.swaggerhub.com/apis-docs/eltemplito/eltemplito/1.0.0
+
+Once the `POST /documents` API request is accepted, the service starts a background process of document generation. The result of the process is then sent in a [message](./document_created_schema.json) to an SNS topic defined in `/${Product}/${Environment}/DOCUMENT_CREATED_SNS_TOPIC` SSM parameter.
+
+The link to a generated document in the SNS message is short-lived and expires as soon as Lambda IAM session token expires. If a subscriber can not process the message in real-time, it is recommended to have a fallback strategy that will obtain the document by making a `GET /documents/{$id}` request to the same API endpoint.
 
 ## Building
 
@@ -47,6 +51,7 @@ rake deploy[stack-name,environment,s3_bucket_name]
 Check out [events](https://github.com/andrba/eltemplito/tree/master/spec/fixtures/events) that are passed to lambda functions.
 
 ```
+# Run API locally on http://127.0.0.1:3000
 sam local start-api --env-vars .env.json
 
 # ListenDocumentStreamFunction - handling new requests (DynamoDB Insert operation)
@@ -71,6 +76,6 @@ sam local invoke --event spec/fixtures/events/generate_pdf.json --env-vars .env.
 ## Testing
 
 ```
-bundle install --with create_document listen_document_stream dispatchr render_template generate_pdf test
+BUNDLE_IGNORE_CONFIG=1 bundle install --with test shared create_document listen_document_stream dispatchr render_template generate_pdf
 bundle exec rspec
 ```

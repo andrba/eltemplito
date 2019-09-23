@@ -19,22 +19,22 @@ RSpec.describe Dispatchr::Handler do
 
     context 'when pipeline is empty' do
       let(:env) do
-        {
-          'params' => {
-            'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-            'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/generate-pdf/document.pdf',
-            'merge_fields' => {
-              'content' => 'The best things in life are not things'
+        HashWithIndifferentAccess.new(
+          params: {
+            id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+            input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/generate-pdf/document.pdf',
+            merge_fields: {
+              content: 'The best things in life are not things'
             },
-            'pipeline' => [],
+            pipeline: [],
           }
-        }
+        )
       end
 
       let(:message) do
         {
           document: '77880a9c-1822-4205-abc2-4bf39ecc9f83/generate-pdf/document.pdf',
-          status: :success
+          status: 'success'
         }
       end
 
@@ -48,16 +48,16 @@ RSpec.describe Dispatchr::Handler do
 
     context 'when the next step in pipeline is rendering template' do
       let(:env) do
-        {
-          'params' => {
-            'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-            'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
-            'merge_fields' => {
-              'content' => 'The best things in life are not things'
+        HashWithIndifferentAccess.new(
+          params: {
+            id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+            input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
+            merge_fields: {
+              content: 'The best things in life are not things'
             },
-            'pipeline' => [Pipeline::RENDER_TEMPLATE],
+            pipeline: [Pipeline::RENDER_TEMPLATE],
           }
-        }
+        )
       end
 
       let(:message) do
@@ -86,16 +86,16 @@ RSpec.describe Dispatchr::Handler do
 
     context 'when the next step in pipeline is generating pdf' do
       let(:env) do
-        {
-          'params' => {
-            'id' => '77880a9c-1822-4205-abc2-4bf39ecc9f83',
-            'input_file' => '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
-            'merge_fields' => {
-              'content' => 'The best things in life are not things'
+        HashWithIndifferentAccess.new(
+          params: {
+            id: '77880a9c-1822-4205-abc2-4bf39ecc9f83',
+            input_file: '77880a9c-1822-4205-abc2-4bf39ecc9f83/original/template.docx',
+            merge_fields: {
+              content: 'The best things in life are not things'
             },
-            'pipeline' => [Pipeline::GENERATE_PDF],
+            pipeline: [Pipeline::GENERATE_PDF],
           }
-        }
+        )
       end
 
       let(:message) do

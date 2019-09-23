@@ -17,6 +17,7 @@ group :dispatchr, optional: :true do
 end
 
 group :shared, optional: true do
+  gem 'activesupport', require: false
   gem 'aws-sdk-s3'
   gem 'aws-sdk-dynamodb'
   gem 'aws-sdk-sns'

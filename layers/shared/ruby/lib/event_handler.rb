@@ -1,3 +1,5 @@
+require "active_support/core_ext/hash/indifferent_access"
+
 class EventHandler
   attr_reader :env
 
@@ -12,10 +14,6 @@ class EventHandler
   private
 
   def params
-    env.fetch('params', {})
-  end
-
-  def context
-    env.fetch('context', {})
+    env.fetch(:params, {})
   end
 end

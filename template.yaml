@@ -83,6 +83,8 @@ Resources:
             # MaximumBatchingWindowInSeconds: 10
             StartingPosition: LATEST
       Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref S3Bucket
         - DynamoDBReadPolicy:
             TableName: !Ref DocumentsDBTable
         - SNSPublishMessagePolicy:

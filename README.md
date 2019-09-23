@@ -75,7 +75,32 @@ sam local invoke --event spec/fixtures/events/generate_pdf.json --env-vars .env.
 
 ## Testing
 
+### Integration
+
 ```
 BUNDLE_IGNORE_CONFIG=1 bundle install --with test shared create_document listen_document_stream dispatchr render_template generate_pdf
 bundle exec rspec
+```
+
+### Manual end to end testing
+
+A simple end to end test can be performed by subscribing an email address to the DocumentCreated topic.
+
+```
+aws sns subscribe --topic-arn <DocumentCreatedSNSTopicArn> --protocol email --notification-endpoint <your@email.com>
+```
+
+AWS will send an email to confirm your subscription. Once the subscription is confirmed, make a POST request to the service endpoint:
+
+```
+curl -X POST \
+  <ENDPOINT_URL>/<ENVIRONMENT>/documents \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "file_url": "https://github.com/andrba/eltemplito/raw/master/spec/fixtures/template.docx",
+	  "output_format": "pdf",
+	  "merge_fields": {
+		  "content": "The best things in life are not things"
+	  }
+  }'
 ```

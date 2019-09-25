@@ -1,7 +1,7 @@
 openapi: "3.0.0"
 info:
   title: "eltemplito-api"
-  version: "v1.0"
+  version: "1"
 
 x-amazon-apigateway-request-validators:
   full:
@@ -38,6 +38,11 @@ paths:
                   id:
                     type: string
                     example: '0e1a0d0e-2e38-4e7a-a060-540a5c6865a4'
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - error
 
 externalDocs:
   description: Find out more about Eltemplito

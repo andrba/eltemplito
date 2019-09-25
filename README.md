@@ -20,7 +20,7 @@ PDF generation is based on [LibreOffice](https://github.com/LibreOffice/core) an
 
 ## API documentation
 
-https://app.swaggerhub.com/apis-docs/eltemplito/eltemplito/1.0.0
+https://app.swaggerhub.com/apis-docs/eltemplito/eltemplito/1
 
 Once the `POST /documents` API request is accepted, the service starts a background process of document generation. The result of the process is then sent in a [message](./document_created_schema.json) to an SNS topic defined in `/${Product}/${Environment}/DOCUMENT_CREATED_SNS_TOPIC` SSM parameter.
 

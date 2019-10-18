@@ -11,6 +11,9 @@
     "status": {
       "type": "string",
       "enum": ["success", "failure"]
+    },
+    "message": {
+      "type": "string"
     }
   },
   "if": {

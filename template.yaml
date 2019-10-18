@@ -66,6 +66,24 @@ Resources:
         - ruby2.5
       RetentionPolicy: Delete
 
+  GetDocumentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: 'app/get_document/'
+      Handler: lambda.GetDocument.handler
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref S3Bucket
+        - DynamoDBReadPolicy:
+            TableName: !Ref DocumentsDBTable
+      Events:
+        GetDocumentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /documents/{id}
+            Method: GET
+
   ListenDocumentStreamFunction:
     Type: AWS::Serverless::Function
     Properties:

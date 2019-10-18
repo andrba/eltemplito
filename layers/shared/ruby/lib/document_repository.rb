@@ -5,6 +5,10 @@ module DocumentRepository
 
   module_function
 
+  def get(attributes)
+    DB.table(ENV['DOCUMENTS_TABLE']).get_item(key: attributes)
+  end
+
   def create(attributes)
     DB.table(ENV['DOCUMENTS_TABLE']).put_item(item: attributes)
   end

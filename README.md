@@ -78,7 +78,7 @@ sam local invoke --event spec/fixtures/events/generate_pdf.json --env-vars .env.
 ### Integration
 
 ```
-BUNDLE_IGNORE_CONFIG=1 bundle install --with test shared create_document listen_document_stream dispatchr render_template generate_pdf
+BUNDLE_IGNORE_CONFIG=1 bundle install --with test shared create_document get_document listen_document_stream dispatchr render_template generate_pdf
 bundle exec rspec
 ```
 

@@ -49,7 +49,7 @@ GEM
     i18n (1.6.0)
       concurrent-ruby (~> 1.0)
     ibsciss-middleware (0.4.2)
-    jmespath (1.4.0)
+    jmespath (1.6.1)
     json_schemer (0.2.6)
       ecma-re-validator (~> 0.2)
       hana (~> 1.3)
